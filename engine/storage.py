@@ -123,29 +123,47 @@ def save_conversation(conv_id: str, messages: list[dict], title: Optional[str] =
 # 加载操作
 # ================================================================
 
-def load_conversation(conv_id: str) -> list[dict]:
+def load_conversation(conv_id: str, limit: int = 3000) -> list[dict]:
     """
-    从数据库加载指定会话的所有消息。
+    从数据库加载指定会话的消息（默认最近 3000 条）。
+
+    参数：
+        conv_id: 会话 ID
+        limit: 最多加载的消息数量（0 表示不限制）
 
     返回：消息列表，可直接用于 API 调用的 messages 格式
     """
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute(
-        "SELECT role, content, tool_call_id FROM messages "
-        "WHERE conversation_id = ? ORDER BY id ASC",
-        (conv_id,)
-    )
+    if limit > 0:
+        # 先取总数，然后只取最近的 limit 条
+        cursor.execute(
+            "SELECT role, content, tool_call_id FROM messages "
+            "WHERE conversation_id = ? ORDER BY id DESC LIMIT ?",
+            (conv_id, limit)
+        )
+    else:
+        cursor.execute(
+            "SELECT role, content, tool_call_id FROM messages "
+            "WHERE conversation_id = ? ORDER BY id ASC",
+            (conv_id,)
+        )
+
+    rows = cursor.fetchall()
+    conn.close()
 
     messages = []
-    for row in cursor.fetchall():
+    for row in rows:
         msg = {"role": row["role"], "content": row["content"]}
         if row["tool_call_id"]:
             msg["tool_call_id"] = row["tool_call_id"]
         messages.append(msg)
 
-    conn.close()
+    # 如果用了 DESC 查询，需要反转回 ASC 顺序
+    if limit > 0:
+        messages.reverse()
+
     return messages
 
 
@@ -169,7 +187,7 @@ def load_last_conversation() -> tuple[Optional[str], list[dict]]:
         return None, []
 
     conv_id = row["id"]
-    messages = load_conversation(conv_id)
+    messages = load_conversation(conv_id, limit=3000)
     return conv_id, messages
 
 

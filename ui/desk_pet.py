@@ -98,7 +98,10 @@ class DeskPet(QMainWindow):
             self._conv_id = datetime.now().strftime("%Y%m%d_%H%M%S")
             print(f"📝 新会话：{self._conv_id}")
         else:
-            print(f"📝 恢复会话：{self._conv_id}（{len(history)} 条历史消息）")
+            loaded = len(history)
+            max_load = 3000
+            pct = loaded / max_load * 100 if max_load else 0
+            print(f"📝 恢复会话：{self._conv_id}（最近 {loaded} 条，占窗口 ~{pct:.0f}%）")
 
         # ---- AI 后端 ----
         self._client = get_client(model="deepseek-v4-flash")
@@ -393,6 +396,13 @@ class DeskPet(QMainWindow):
     def _show_reply(self, text: str):
         """显示 AI 回复：气泡 + TTS"""
         self._set_pet_state(PetState.TALKING)
+
+        # 运行时保护：超过 3500 条消息时，保留 system 消息 + 最近 3000 条
+        if len(self._messages) > 3500:
+            system = self._messages[0] if self._messages[0]["role"] == "system" else None
+            self._messages = self._messages[-3000:]
+            if system and self._messages[0]["role"] != "system":
+                self._messages.insert(0, system)
 
         # 自动保存对话到数据库
         try:
