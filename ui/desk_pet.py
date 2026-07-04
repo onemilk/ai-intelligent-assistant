@@ -16,8 +16,10 @@ from ui.bubble import SpeechBubble
 from ui.input_popup import InputPopup
 
 from engine.client import get_client
+from engine import storage  # 对话持久化
 from tools import get_definitions, execute_tool
 import json
+from datetime import datetime
 
 
 class DeskPet(QMainWindow):
@@ -88,16 +90,27 @@ class DeskPet(QMainWindow):
         # ---- 信号连接 ----
         self.ai_reply_ready.connect(self._show_reply)
 
+        # ---- 对话持久化 ----
+        storage.init_db()  # 确保数据库表存在
+        self._conv_id, history = storage.load_last_conversation()
+        if self._conv_id is None:
+            # 没有历史会话，创建新的
+            self._conv_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+            print(f"📝 新会话：{self._conv_id}")
+        else:
+            print(f"📝 恢复会话：{self._conv_id}（{len(history)} 条历史消息）")
+
         # ---- AI 后端 ----
         self._client = get_client(model="deepseek-v4-flash")
         self._tools = get_definitions()
-        self._messages = [
-            {
-                "role": "system",
-                "content": "你是一个可爱的桌面宠物助手。用中文回答，简洁友好，"
-                           "回复控制在 50 字以内，像朋友聊天一样自然。有时可以说些俏皮话。"
-            }
-        ]
+
+        # 系统提示词 + 历史消息
+        system_msg = {
+            "role": "system",
+            "content": "你是一个可爱的桌面宠物助手。用中文回答，简洁友好，"
+                       "回复控制在 50 字以内，像朋友聊天一样自然。有时可以说些俏皮话。"
+        }
+        self._messages = [system_msg] + history
 
         # ---- TTS ----
         self._tts_enabled = True
@@ -381,6 +394,12 @@ class DeskPet(QMainWindow):
         """显示 AI 回复：气泡 + TTS"""
         self._set_pet_state(PetState.TALKING)
 
+        # 自动保存对话到数据库
+        try:
+            storage.save_conversation(self._conv_id, self._messages)
+        except Exception:
+            pass  # 保存失败不影响正常使用
+
         # 气泡位置：宠物正上方，确保不超出屏幕
         pet_geo = self.frameGeometry()
         bubble_x = pet_geo.center().x() - 80  # 气泡宽 160，居中
@@ -416,6 +435,10 @@ class DeskPet(QMainWindow):
         chat_action = QAction("💬  打开聊天面板", self)
         chat_action.triggered.connect(self._open_chat_panel)
         menu.addAction(chat_action)
+
+        history_action = QAction("📋  查看历史", self)
+        history_action.triggered.connect(self._show_history)
+        menu.addAction(history_action)
 
         doc_action = QAction("📄  上传文档", self)
         doc_action.triggered.connect(self._upload_document)
@@ -496,7 +519,29 @@ class DeskPet(QMainWindow):
             self.animator.update_pixmap(self.pet_widget.get_pixmap())
             self._show_reply("新衣服真好看！😊")
 
+    def _show_history(self):
+        """查看对话历史"""
+        conversations = storage.list_conversations()
+        if not conversations:
+            self._show_reply("还没有对话记录哦~")
+            return
+        latest = conversations[0]
+        msgs = storage.load_conversation(latest["id"])
+        user_msgs = [m for m in msgs if m["role"] == "user"]
+        last = user_msgs[-1]["content"][:30] + "..." if user_msgs else "无"
+        self._show_reply(f"共 {len(conversations)} 个会话。\n最近：{latest['title']}\n最后：{last}")
+        # 终端打印历史列表
+        print(f"\n📋 对话历史 ({len(conversations)} 个会话):")
+        for c in conversations[:5]:
+            print(f"  [{c['id']}] {c['title']} - {c['updated_at']}")
+
     def _quit(self):
+        """退出程序——保存对话"""
+        try:
+            storage.save_conversation(self._conv_id, self._messages)
+            print(f"💾 对话已保存：{self._conv_id}")
+        except Exception:
+            pass
         self.bubble.hide()
         self.input_popup.hide()
         QApplication.quit()

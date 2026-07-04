@@ -14,3 +14,6 @@ wheels/
 
 # ChromaDB 向量数据库文件（运行时生成，不应提交）
 chroma_data/
+
+# SQLite 对话历史数据库（运行时生成）
+chat_history.db
