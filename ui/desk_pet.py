@@ -295,16 +295,20 @@ class DeskPet(QMainWindow):
 
     def _on_user_message(self, text: str):
         """用户提交了消息 → 后台调用 AI"""
+        print(f"[桌宠] 收到消息：{text}")
         self._wake_up()
         self._set_pet_state(PetState.THINKING)
         self._messages.append({"role": "user", "content": text})
 
         def ai_thread():
             try:
+                print("[桌宠] 后台线程开始调用 AI...")
                 ai_reply, _ = self._call_ai()
+                print(f"[桌宠] AI 返回：{ai_reply[:50]}...")
                 self.ai_reply_ready.emit(ai_reply)
             except Exception as e:
                 import traceback
+                print(f"[桌宠] 异常：{e}")
                 traceback.print_exc()
                 self.ai_reply_ready.emit(f"出错啦：{e}")
 
@@ -341,6 +345,7 @@ class DeskPet(QMainWindow):
 
     def _show_reply(self, text: str):
         """显示 AI 回复：气泡 + TTS"""
+        print(f"[桌宠] _show_reply 被调用，文本：{text[:50]}...")
         self._set_pet_state(PetState.TALKING)
 
         pet_pos = self.frameGeometry().topLeft()
