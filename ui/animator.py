@@ -99,7 +99,10 @@ class Animator(QObject):
         for i in range(z_frame + 1):
             y_offset = 5 - i * 14 + (self._frame % 8) * 1
             opacity = min(200, 80 + i * 60)
-            painter.setFont(QFont("Microsoft YaHei", 10 + i * 2, QFont.Bold))
+            font = QFont()
+            font.setPointSize(10 + i * 2)
+            font.setBold(True)
+            painter.setFont(font)
             painter.setPen(QColor(120, 120, 220, opacity))
             painter.drawText(result.width() - 35, 25 + y_offset, "Z" * (i + 1))
         painter.end()

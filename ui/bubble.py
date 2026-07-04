@@ -26,7 +26,10 @@ class SpeechBubble(QWidget):
         self.label = QLabel(self)
         self.label.setAlignment(Qt.AlignCenter)
         self.label.setWordWrap(True)
-        self.label.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
+        font = QFont()
+        font.setPointSize(10)
+        font.setBold(True)
+        self.label.setFont(font)
         self.label.setStyleSheet("color: #222; background: transparent; padding: 2px;")
         self.label.setGeometry(12, 8, 156, 40)
 

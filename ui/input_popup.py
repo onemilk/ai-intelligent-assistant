@@ -27,7 +27,9 @@ class InputPopup(QWidget):
         # 输入框
         self.input_field = QLineEdit(self)
         self.input_field.setPlaceholderText("说点什么...")
-        self.input_field.setFont(QFont("Microsoft YaHei", 10))
+        font = QFont()
+        font.setPointSize(10)
+        self.input_field.setFont(font)
         self.input_field.setStyleSheet("""
             QLineEdit {
                 background: rgba(255, 255, 255, 240);
