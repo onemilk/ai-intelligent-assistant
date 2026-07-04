@@ -1,7 +1,7 @@
 """向量存储 —— ChromaDB 管理：入库、检索、清空"""
 import chromadb
 from chromadb.utils import embedding_functions
-from typing import List, Optional
+from typing import List
 
 # ChromaDB 嵌入模型（all-MiniLM-L6-v2，轻量、离线、免费）
 _embedding_fn = embedding_functions.DefaultEmbeddingFunction()
@@ -25,25 +25,27 @@ def index_document(chunks: List[str], doc_name: str):
     """
     将文档段落向量化并存入 ChromaDB。
 
+    现在支持多文档并存——每个文档的 ID 带前缀，互不覆盖。
+
     参数：
         chunks: 文本段落列表
-        doc_name: 文档文件名（用于来源标注）
+        doc_name: 文档文件名（用于来源标注和 ID 前缀）
     """
     collection = _get_collection()
 
-    # 清空旧数据（每次只保留一个文档）
+    # 如果已有同名文档，先删除旧数据（同一文件重新上传时替换）
     try:
-        existing = collection.get()
+        existing = collection.get(where={"source": doc_name})
         if existing["ids"]:
             collection.delete(ids=existing["ids"])
     except Exception:
         pass
 
-    # 为每个段落生成唯一 ID 并入库
-    ids = [f"doc_{i}" for i in range(len(chunks))]
+    # ID 格式：文档名_序号，保证不同文档的 ID 不冲突
+    safe_name = doc_name.replace(".", "_").replace("/", "_").replace("\\", "_")
+    ids = [f"{safe_name}_{i}" for i in range(len(chunks))]
     metadatas = [{"source": doc_name, "chunk_index": i} for i in range(len(chunks))]
 
-    # add() 会自动调用嵌入模型把文本转成向量
     collection.add(documents=chunks, ids=ids, metadatas=metadatas)
 
 
@@ -77,3 +79,27 @@ def search_documents(query: str, top_k: int = 3) -> str:
         )
 
     return "\n\n".join(output_parts)
+
+
+def list_documents() -> List[str]:
+    """列出所有已入库的文档名"""
+    collection = _get_collection()
+    try:
+        results = collection.get()
+        if results["metadatas"]:
+            sources = set(m["source"] for m in results["metadatas"])
+            return sorted(sources)
+    except Exception:
+        pass
+    return []
+
+
+def remove_document(doc_name: str):
+    """从向量库中删除指定文档"""
+    collection = _get_collection()
+    try:
+        existing = collection.get(where={"source": doc_name})
+        if existing["ids"]:
+            collection.delete(ids=existing["ids"])
+    except Exception:
+        pass

@@ -67,3 +67,25 @@ def execute_search_documents(query: str) -> str:
         return search_documents(query, top_k=3)
     except Exception as e:
         return f"文档搜索时出错：{str(e)}。可能还没有上传文档。"
+
+
+def execute_list_documents() -> str:
+    """列出所有已入库的文档"""
+    try:
+        from rag.vector_store import list_documents
+        docs = list_documents()
+        if not docs:
+            return "知识库中没有文档。"
+        return "已入库的文档：\n" + "\n".join(f"  📄 {d}" for d in docs)
+    except Exception as e:
+        return f"获取文档列表时出错：{str(e)}"
+
+
+def execute_remove_document(doc_name: str) -> str:
+    """从知识库中删除指定文档"""
+    try:
+        from rag.vector_store import remove_document
+        remove_document(doc_name)
+        return f"文档 '{doc_name}' 已从知识库中移除。"
+    except Exception as e:
+        return f"移除文档时出错：{str(e)}"
