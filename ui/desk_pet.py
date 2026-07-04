@@ -16,9 +16,10 @@ from ui.bubble import SpeechBubble
 from ui.input_popup import InputPopup
 
 from engine.client import get_client
-from engine import storage  # 对话持久化
+from engine import storage, config  # 对话持久化 + 配置管理
 from tools import get_definitions, execute_tool
 import json
+import os
 from datetime import datetime
 
 
@@ -104,7 +105,7 @@ class DeskPet(QMainWindow):
             print(f"📝 恢复会话：{self._conv_id}（最近 {loaded} 条，占窗口 ~{pct:.0f}%）")
 
         # ---- AI 后端 ----
-        self._client = get_client(model="deepseek-v4-flash")
+        self._client = get_client(model=self._model)
         self._tools = get_definitions()
 
         # 系统提示词 + 历史消息
@@ -115,8 +116,8 @@ class DeskPet(QMainWindow):
         }
         self._messages = [system_msg] + history
 
-        # ---- TTS ----
-        self._tts_enabled = True
+        # ---- TTS（从配置读取） ----
+        self._tts_enabled = config.get("ui.tts_enabled")
         try:
             import pyttsx3
             self._tts_engine = pyttsx3.init()
@@ -129,9 +130,15 @@ class DeskPet(QMainWindow):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
 
+        # ---- 应用配置中的休眠时间 ----
+        self._sleep_timeout = config.get("ui.sleep_timeout_seconds")
+
         # 初始位置：屏幕右下角
         screen = QApplication.primaryScreen().availableGeometry()
         self.move(screen.right() - 200, screen.bottom() - 200)
+
+        # 模型从配置读取
+        self._model = config.get("api.model")
 
     # ================================================================
     # 动画帧更新 + 眼球绘制
@@ -481,6 +488,10 @@ class DeskPet(QMainWindow):
 
         menu.addSeparator()
 
+        settings_action = QAction("⚙️  设置", self)
+        settings_action.triggered.connect(self._open_settings)
+        menu.addAction(settings_action)
+
         quit_action = QAction("❌  退出", self)
         quit_action.triggered.connect(self._quit)
         menu.addAction(quit_action)
@@ -544,6 +555,20 @@ class DeskPet(QMainWindow):
         print(f"\n📋 对话历史 ({len(conversations)} 个会话):")
         for c in conversations[:5]:
             print(f"  [{c['id']}] {c['title']} - {c['updated_at']}")
+
+    def _open_settings(self):
+        """打开设置对话框"""
+        from ui.settings_dialog import SettingsDialog
+        dialog = SettingsDialog(self)
+        if dialog.exec():  # 用户点击了保存
+            # 重新加载配置
+            self._tts_enabled = config.get("ui.tts_enabled")
+            self._sleep_timeout = config.get("ui.sleep_timeout_seconds")
+            new_model = config.get("api.model")
+            if new_model != self._model:
+                self._model = new_model
+                self._client = get_client(model=new_model)
+            self._show_reply("设置已更新！✨")
 
     def _quit(self):
         """退出程序——保存对话"""
