@@ -45,7 +45,7 @@ class DeskPet(QMainWindow):
         # ---- 动画控制器 ----
         self.animator = Animator(self.pet_widget.get_pixmap(), self)
         self.animator.frame_updated.connect(self._on_frame)
-        self.animator.set_state(PetState.IDLE)
+        self._set_pet_state(PetState.IDLE)
 
         # ---- Mini Mode ----
         self._mini_mode = False          # 是否处于隐藏状态
@@ -143,15 +143,35 @@ class DeskPet(QMainWindow):
         if self.animator._state == PetState.IDLE:
             self._idle_seconds += 1
             if self._idle_seconds >= self._sleep_timeout:
-                self.animator.set_state(PetState.SLEEPING)
+                self._set_pet_state(PetState.SLEEPING)
         else:
             self._idle_seconds = 0
 
     def _wake_up(self):
         """从睡眠中唤醒"""
         if self.animator._state == PetState.SLEEPING:
-            self.animator.set_state(PetState.IDLE)
+            self._set_pet_state(PetState.IDLE)
         self._idle_seconds = 0
+
+    def _set_pet_state(self, state: PetState):
+        """切换宠物状态，自动匹配精灵帧"""
+        self.animator.set_state(state)
+
+        # 尝试从 PetWidget 获取对应状态的精灵帧
+        frame_map = {
+            PetState.IDLE: "idle",
+            PetState.TALKING: "talk",
+            PetState.SLEEPING: "sleep",
+        }
+        sprite_state = frame_map.get(state)
+        if sprite_state:
+            sprite_pixmap = self.pet_widget.get_frame(sprite_state)
+            if sprite_pixmap:
+                self.animator.update_pixmap(sprite_pixmap)
+                return
+
+        # 没有精灵帧时回退到默认图片
+        self.animator.update_pixmap(self.pet_widget.get_pixmap())
 
     # ================================================================
     # Mini Mode —— 拖到边缘自动隐藏，悬停弹出
@@ -276,7 +296,7 @@ class DeskPet(QMainWindow):
     def _on_user_message(self, text: str):
         """用户提交了消息 → 后台调用 AI"""
         self._wake_up()
-        self.animator.set_state(PetState.THINKING)
+        self._set_pet_state(PetState.THINKING)
         self._messages.append({"role": "user", "content": text})
 
         def ai_thread():
@@ -321,7 +341,7 @@ class DeskPet(QMainWindow):
 
     def _show_reply(self, text: str):
         """显示 AI 回复：气泡 + TTS"""
-        self.animator.set_state(PetState.TALKING)
+        self._set_pet_state(PetState.TALKING)
 
         pet_pos = self.frameGeometry().topLeft()
         bubble_pos = QPoint(pet_pos.x() - 5, pet_pos.y() - 60)
@@ -338,7 +358,7 @@ class DeskPet(QMainWindow):
                     pass
             threading.Thread(target=speak, daemon=True).start()
 
-        QTimer.singleShot(3000, lambda: self.animator.set_state(PetState.IDLE))
+        QTimer.singleShot(3000, lambda: self._set_pet_state(PetState.IDLE))
 
     # ================================================================
     # 右键菜单
@@ -367,7 +387,17 @@ class DeskPet(QMainWindow):
             mini_action.triggered.connect(lambda: self._enter_mini_mode("right"))
         menu.addAction(mini_action)
 
-        change_action = QAction("🎨  换装", self)
+        # 换肤子菜单
+        skin_menu = QMenu("🎨  换肤", self)
+        skin_menu.setStyleSheet("QMenu { font-family: 'Microsoft YaHei'; font-size: 12px; }")
+        for name in ["orange_cat", "black_cat", "calico", "slime"]:
+            label_map = {"orange_cat": "🐱 橘猫", "black_cat": "🐈‍⬛ 黑猫", "calico": "🐱 三花", "slime": "💧 史莱姆"}
+            action = QAction(label_map.get(name, name), self)
+            action.triggered.connect(lambda checked, n=name: self._switch_skin(n))
+            skin_menu.addAction(action)
+        menu.addMenu(skin_menu)
+
+        change_action = QAction("🖼️  自定义图片", self)
         change_action.triggered.connect(self._change_costume)
         menu.addAction(change_action)
 
@@ -396,6 +426,20 @@ class DeskPet(QMainWindow):
             self._messages.append({"role": "user", "content": "上传文档"})
             self._messages.append({"role": "assistant", "content": result})
             self._show_reply(result)
+
+    def _switch_skin(self, palette_name: str):
+        """切换到内置像素精灵皮肤"""
+        from ui.pet_widget import generate_all_frames
+        self.pet_widget._frames = generate_all_frames(palette_name)
+        self.pet_widget._base_pixmap = None
+        # 获取 idle 帧更新显示
+        frame = self.pet_widget.get_frame("idle")
+        if frame:
+            self.pet_widget._base_pixmap = frame
+            self.pet_widget.setPixmap(frame)
+            self.animator.update_pixmap(frame)
+        self._set_pet_state(PetState.IDLE)
+        self._show_reply("新皮肤！好看吗？😊")
 
     def _change_costume(self):
         from PySide6.QtWidgets import QFileDialog
