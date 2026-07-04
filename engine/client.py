@@ -37,17 +37,14 @@ class LLMClient:
 
     def chat(self, messages: list[dict], tools: list[dict] | None = None):
         """
-        发送对话请求。
+        发送对话请求（非流式）。
 
         参数：
             messages: 对话历史消息列表（符合 OpenAI API 格式）
-            tools: 可选的工具定义列表，AI 可据此决定是否调用工具
+            tools: 可选的工具定义列表
 
         返回：
             OpenAI ChatCompletion 响应对象
-            - response.choices[0].message.content → AI 的文字回复
-            - response.choices[0].message.tool_calls → AI 的工具调用请求
-            - response.choices[0].finish_reason → "stop"（文字）或 "tool_calls"（要调工具）
         """
         kwargs = {
             "model": self.model,
@@ -57,6 +54,41 @@ class LLMClient:
             kwargs["tools"] = tools
 
         return self._client.chat.completions.create(**kwargs)
+
+    def chat_stream(self, messages: list[dict], tools: list[dict] | None = None):
+        """
+        发送对话请求（流式）。
+
+        和 chat() 的区别：不等待完整回复，而是返回一个生成器，
+        每收到一小段文本就 yield 出来，实现"打字机效果"。
+
+        用法：
+            for chunk in client.chat_stream(messages):
+                print(chunk, end="", flush=True)
+
+        注意：流式模式下如果 AI 需要调用工具，会先收到一个 tool_calls
+        信号，此时应切换到非流式模式处理工具调用。
+        """
+        kwargs = {
+            "model": self.model,
+            "messages": messages,
+            "stream": True,           # 关键参数：开启流式
+            "stream_options": {"include_usage": True},  # 包含 token 用量
+        }
+        if tools:
+            kwargs["tools"] = tools
+
+        # 返回生成器，每 yield 一个文本片段
+        stream = self._client.chat.completions.create(**kwargs)
+        for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta:
+                delta = chunk.choices[0].delta
+                # 检查是否是工具调用
+                if delta.tool_calls:
+                    yield ("tool_calls", delta.tool_calls)
+                elif delta.content:
+                    yield ("text", delta.content)
+                # 最后一帧只含 finish_reason，忽略
 
 
 # ---- 全局单例 ----
