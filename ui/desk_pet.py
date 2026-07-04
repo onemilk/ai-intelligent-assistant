@@ -8,7 +8,7 @@ import random
 import math
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QSystemTrayIcon
 from PySide6.QtCore import Qt, QPoint, QTimer, Signal
-from PySide6.QtGui import QAction, QCursor, QIcon
+from PySide6.QtGui import QAction, QCursor, QIcon, QPixmap
 
 from ui.pet_widget import PetWidget
 from ui.animator import Animator, PetState
@@ -178,12 +178,32 @@ class DeskPet(QMainWindow):
 
     def _setup_tray(self):
         """初始化系统托盘图标"""
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            print("⚠️ 系统托盘不可用")
+            return
+
         self._tray = QSystemTrayIcon(self)
-        # 用精灵图做托盘图标
+        # 优先用精灵图，否则用 emoji 图标
         icon_pixmap = self.pet_widget.get_pixmap()
-        if icon_pixmap:
+        if icon_pixmap and not icon_pixmap.isNull():
             self._tray.setIcon(QIcon(icon_pixmap))
-        self._tray.setToolTip("AI 桌宠助手 🐱")
+        else:
+            # 创建一个简单的猫脸 emoji 作为托盘图标
+            from PIL import Image, ImageDraw
+            import io
+            img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img)
+            draw.ellipse([4, 4, 60, 60], fill=(255, 180, 80, 255))
+            draw.ellipse([18, 22, 28, 32], fill=(0, 0, 0, 255))
+            draw.ellipse([36, 22, 46, 32], fill=(0, 0, 0, 255))
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            buf.seek(0)
+            fallback = QPixmap()
+            fallback.loadFromData(buf.read())
+            self._tray.setIcon(QIcon(fallback))
+
+        self._tray.setToolTip("AI 桌宠助手 🐱  - 点击显示/隐藏")
 
         # 托盘菜单
         tray_menu = QMenu()
