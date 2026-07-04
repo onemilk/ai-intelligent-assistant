@@ -6,7 +6,7 @@ idle（待机）→ thinking（思考）→ talking（说话）→ idle → ...
 缩放、旋转、位移来模拟动画效果。效果虽简朴但有效。
 """
 import random
-from PySide6.QtCore import QTimer, QObject, Signal
+from PySide6.QtCore import QTimer, QObject, Signal, Qt
 from PySide6.QtGui import QPixmap, QTransform
 from enum import Enum, auto
 
