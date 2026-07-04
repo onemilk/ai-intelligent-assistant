@@ -348,8 +348,15 @@ class DeskPet(QMainWindow):
         print(f"[桌宠] _show_reply 被调用，文本：{text[:50]}...")
         self._set_pet_state(PetState.TALKING)
 
-        pet_pos = self.frameGeometry().topLeft()
-        bubble_pos = QPoint(pet_pos.x() - 5, pet_pos.y() - 60)
+        # 气泡位置：宠物正上方，确保不超出屏幕
+        pet_geo = self.frameGeometry()
+        bubble_x = pet_geo.center().x() - 80  # 气泡宽 160，居中
+        bubble_y = pet_geo.top() - 60
+        # 边界保护
+        screen = QApplication.primaryScreen().availableGeometry()
+        bubble_x = max(screen.left(), min(bubble_x, screen.right() - 160))
+        bubble_y = max(screen.top(), bubble_y)
+        bubble_pos = QPoint(bubble_x, bubble_y)
         self.bubble.show_message(text, bubble_pos, duration_ms=5000)
 
         # TTS 后台播放

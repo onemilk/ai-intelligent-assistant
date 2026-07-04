@@ -19,16 +19,16 @@ class SpeechBubble(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
 
-        # 气泡尺寸——小巧克制
-        self.setFixedSize(160, 50)
+        # 气泡尺寸
+        self.setFixedSize(180, 56)
 
         # 文字标签
         self.label = QLabel(self)
         self.label.setAlignment(Qt.AlignCenter)
         self.label.setWordWrap(True)
-        self.label.setFont(QFont("Microsoft YaHei", 9))
-        self.label.setStyleSheet("color: #333; background: transparent;")
-        self.label.setGeometry(10, 8, 140, 34)
+        self.label.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
+        self.label.setStyleSheet("color: #222; background: transparent; padding: 2px;")
+        self.label.setGeometry(12, 8, 156, 40)
 
         # 自动消失计时器
         self._hide_timer = QTimer(self)
