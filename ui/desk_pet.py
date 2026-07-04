@@ -66,12 +66,17 @@ class DeskPet(QMainWindow):
         self._eye_timer.timeout.connect(self._update_eyes)
         self._eye_timer.start(100)  # 每 100ms 更新视线
 
+        # ---- 待机随机动作 ----
+        self._idle_action_timer = QTimer(self)
+        self._idle_action_timer.timeout.connect(self._random_idle_action)
+        self._idle_action_timer.start(6000)  # 每 6 秒可能切换动作
+
         # ---- 睡眠检测 ----
         self._idle_seconds = 0
         self._sleep_timer = QTimer(self)
         self._sleep_timer.timeout.connect(self._check_sleep)
-        self._sleep_timer.start(1000)  # 每秒检测
-        self._sleep_timeout = 60  # 60 秒无交互进入睡眠
+        self._sleep_timer.start(1000)
+        self._sleep_timeout = 60
 
         # ---- 对话气泡 ----
         self.bubble = SpeechBubble()
@@ -152,6 +157,36 @@ class DeskPet(QMainWindow):
         if self.animator._state == PetState.SLEEPING:
             self._set_pet_state(PetState.IDLE)
         self._idle_seconds = 0
+
+    def _random_idle_action(self):
+        """随机做一个待机小动作：走路 / 跳跃"""
+        if self.animator._state != PetState.IDLE:
+            return
+        action = random.choice(["idle", "idle", "walk", "jump"])
+        if action == "walk":
+            direction = random.choice(["running-right", "running-left"])
+            frames = self.pet_widget.get_all_frames(direction)
+            if frames:
+                self.animator.set_sprite(frames)
+        elif action == "jump":
+            frames = self.pet_widget.get_all_frames("jumping")
+            if frames:
+                self.animator.set_sprite(frames)
+        else:
+            # 恢复 idle 帧
+            frames = self.pet_widget.get_all_frames("idle")
+            if frames:
+                self.animator.set_sprite(frames)
+
+        # 1.5 秒后恢复 idle
+        QTimer.singleShot(1500, self._restore_idle)
+
+    def _restore_idle(self):
+        """恢复 idle 精灵帧"""
+        if self.animator._state == PetState.IDLE:
+            frames = self.pet_widget.get_all_frames("idle")
+            if frames:
+                self.animator.set_sprite(frames)
 
     def _set_pet_state(self, state: PetState):
         """切换宠物状态，自动加载对应的精灵帧序列"""
