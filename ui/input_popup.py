@@ -62,6 +62,5 @@ class InputPopup(QWidget):
         """用户按下回车——发送消息并关闭"""
         text = self.input_field.text().strip()
         if text:
-            print(f"[输入框] 用户按回车，发送：{text}")
             self.message_submitted.emit(text)
         self.hide()
