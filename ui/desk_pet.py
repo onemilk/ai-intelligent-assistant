@@ -146,6 +146,7 @@ class DeskPet(QMainWindow):
 
     def _on_user_message(self, text: str):
         """用户提交了消息 → 发送给 AI"""
+        print(f"[桌宠] 收到用户消息：{text}")
         self.animator.set_state(PetState.THINKING)
         self._messages.append({"role": "user", "content": text})
 
