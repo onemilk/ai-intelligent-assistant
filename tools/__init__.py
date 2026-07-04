@@ -12,6 +12,7 @@ from tools.doc_tool import (
     execute_load_document,
     execute_search_documents,
 )
+from tools.crew_tool import TOOL_DEFINITION as CREW_DEF, execute as exec_crew
 
 # ---- 工具定义列表（发给 AI 的"菜单"）----
 ALL_TOOL_DEFINITIONS = [
@@ -19,6 +20,7 @@ ALL_TOOL_DEFINITIONS = [
     SEARCH_DEF,
     LOAD_DOC_TOOL_DEFINITION,
     SEARCH_DOCS_TOOL_DEFINITION,
+    CREW_DEF,
 ]
 
 # ---- 工具名称 → 执行函数的映射表 ----
@@ -27,6 +29,7 @@ TOOL_EXECUTORS = {
     "search_web": exec_search,
     "load_document": execute_load_document,
     "search_documents": execute_search_documents,
+    "start_research_crew": exec_crew,
 }
 
 
