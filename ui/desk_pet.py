@@ -154,24 +154,25 @@ class DeskPet(QMainWindow):
         self._idle_seconds = 0
 
     def _set_pet_state(self, state: PetState):
-        """切换宠物状态，自动匹配精灵帧"""
+        """切换宠物状态，自动加载对应的精灵帧序列"""
         self.animator.set_state(state)
 
-        # 尝试从 PetWidget 获取对应状态的精灵帧
-        frame_map = {
+        # 状态 → 精灵图状态名映射
+        sprite_map = {
             PetState.IDLE: "idle",
-            PetState.TALKING: "talk",
-            PetState.SLEEPING: "sleep",
+            PetState.THINKING: "waiting",
+            PetState.TALKING: "waving",
+            PetState.SLEEPING: "idle",  # 用 idle 帧 + ZZZ
         }
-        sprite_state = frame_map.get(state)
-        if sprite_state:
-            sprite_pixmap = self.pet_widget.get_frame(sprite_state)
-            if sprite_pixmap:
-                self.animator.update_pixmap(sprite_pixmap)
-                return
 
-        # 没有精灵帧时回退到默认图片
-        self.animator.update_pixmap(self.pet_widget.get_pixmap())
+        sprite_name = sprite_map.get(state, "idle")
+        frames = self.pet_widget.get_all_frames(sprite_name)
+
+        if frames:
+            self.animator.set_sprite(frames)
+        else:
+            # 回退
+            self.animator.update_pixmap(self.pet_widget.get_pixmap())
 
     # ================================================================
     # Mini Mode —— 拖到边缘自动隐藏，悬停弹出

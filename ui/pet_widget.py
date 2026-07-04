@@ -1,260 +1,97 @@
 """
-桌宠角色控件 v2 —— 内置像素精灵生成器 + 图片像素化。
-对标 Codex Pet / Clawd on Desk 的像素风效果。
+桌宠角色控件 v3 —— 基于精灵图（Spritesheet）的像素动画。
+支持 Codex 格式精灵图：8 列 × 9 行，每格 192×208。
+内置 Aemeath Mini（爱弥斯 Q 版像素小人）作为默认角色。
 """
 from PySide6.QtWidgets import QLabel
 from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtCore import Qt
-from PIL import Image, ImageDraw
+from PIL import Image
 import io
-
+import os
 
 # ============================================================
-# 像素精灵生成器 —— 程序化生成 32×32 像素角色
+# 精灵图加载器 —— 从大图切片成单帧
 # ============================================================
 
-# 调色板：不同主题的配色方案
-PALETTES = {
-    "orange_cat": {  # 橘猫（默认）
-        "body": (255, 180, 80),
-        "body_dark": (220, 140, 40),
-        "belly": (255, 220, 180),
-        "ear_inner": (255, 150, 150),
-        "eye_white": (255, 255, 255),
-        "eye_pupil": (30, 30, 30),
-        "nose": (255, 100, 100),
-        "mouth": (80, 40, 20),
-        "outline": (60, 30, 10),
-    },
-    "black_cat": {  # 黑猫
-        "body": (60, 60, 70),
-        "body_dark": (40, 40, 50),
-        "belly": (100, 100, 110),
-        "ear_inner": (180, 150, 150),
-        "eye_white": (255, 255, 255),
-        "eye_pupil": (20, 255, 20),  # 绿眼睛
-        "nose": (200, 150, 150),
-        "mouth": (200, 200, 200),
-        "outline": (20, 20, 30),
-    },
-    "calico": {  # 三花猫
-        "body": (255, 240, 230),
-        "body_dark": (200, 150, 100),
-        "belly": (255, 250, 245),
-        "ear_inner": (255, 180, 180),
-        "eye_white": (255, 255, 255),
-        "eye_pupil": (40, 40, 100),
-        "nose": (255, 150, 150),
-        "mouth": (150, 100, 80),
-        "outline": (80, 60, 50),
-    },
-    "slime": {  # 史莱姆
-        "body": (130, 220, 255),
-        "body_dark": (80, 180, 220),
-        "belly": (200, 240, 255),
-        "ear_inner": (255, 200, 200),
-        "eye_white": (255, 255, 255),
-        "eye_pupil": (20, 20, 40),
-        "nose": (255, 150, 150),
-        "mouth": (60, 120, 160),
-        "outline": (40, 100, 140),
-    },
-}
+# 精灵图格式（Codex 标准）
+SPRITESHEET_COLS = 8   # 8 列
+SPRITESHEET_ROWS = 9   # 9 行
+CELL_WIDTH = 192       # 每格宽度
+CELL_HEIGHT = 208      # 每格高度
+
+# 行号 → 动画状态名（从 README 确认的顺序）
+ROW_STATES = [
+    "idle",           # 第 1 行：待机
+    "running-right",  # 第 2 行：右移
+    "running-left",   # 第 3 行：左移
+    "waving",         # 第 4 行：招呼
+    "jumping",        # 第 5 行：跳跃
+    "failed",         # 第 6 行：异常/困惑
+    "waiting",        # 第 7 行：屏幕待机（电子幽灵）
+    "running",        # 第 8 行：执行任务
+    "review",         # 第 9 行：完成反馈
+]
 
 
-def _px(draw, x, y, color):
-    """在像素网格中画一个像素块（4×4 实际像素 = 1 逻辑像素）"""
-    size = 4  # 每个逻辑像素 = 4×4 实际像素（适合 32×32 → 128×128 显示）
-    draw.rectangle([x*size, y*size, (x+1)*size-1, (y+1)*size-1], fill=color)
-
-
-def generate_pixel_pet(palette_name: str = "orange_cat", frame: int = 0) -> Image.Image:
+def load_spritesheet_png(path: str) -> dict:
     """
-    程序化生成一个 128×128 的像素风宠物精灵。
-
-    基于 32×32 逻辑像素网格，每个逻辑像素 = 4×4 实际像素。
+    加载精灵图 PNG，切成单帧。
 
     参数：
-        palette_name: 配色方案名称
-        frame: 动画帧号（0=正面, 1=眨眼, 2=张嘴, 3=歪头）
+        path: spritesheet.png 的路径
 
     返回：
-        RGBA PNG 图片（PIL Image）
+        {"idle": [QPixmap, QPixmap, ...], "waving": [...], ...}
     """
-    pal = PALETTES.get(palette_name, PALETTES["orange_cat"])
-    img = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
+    img = Image.open(path).convert("RGBA")
+    width, height = img.size
 
-    def p(x, y, color):
-        _px(draw, x, y, color)
+    frames_map = {}
 
-    # ---- 身体（椭圆形躯干）----
-    body_coords = [
-        # 第 8-24 行，第 4-28 列（中间宽，上下窄）
-        (4, 8), (5, 8), (6, 8), (7, 8),
-        (8, 7), (9, 7), (10, 7), (11, 7),
-        (12, 6), (13, 6), (14, 6), (15, 6), (16, 6), (17, 6), (18, 6), (19, 6),
-        (20, 7), (21, 7), (22, 7), (23, 7),
-        (24, 8), (25, 8), (26, 8), (27, 8),
-        # 第 7-14 行扩展
-        (3, 9), (4, 9), (28, 9), (29, 9),
-        (2, 10), (3, 10), (29, 10), (30, 10),
-        (2, 11), (30, 11),
-        (1, 12), (2, 12), (30, 12), (31, 12),
-        (1, 13), (31, 13),
-        (1, 14), (31, 14),
-        (1, 15), (31, 15),
-        (1, 16), (31, 16),
-        (1, 17), (31, 17),
-        (1, 18), (31, 18),
-        (2, 19), (30, 19),
-        (2, 20), (30, 20),
-        (3, 21), (29, 21),
-        (4, 22), (28, 22),
-        (5, 23), (27, 23),
-        (6, 24), (26, 24),
-        (7, 25), (25, 25),
-        (8, 26), (24, 26),
-        (10, 27), (22, 27),
-        (12, 28), (20, 28),
-    ]
-    for x, y in body_coords:
-        p(x, y, pal["body"])
+    for row in range(SPRITESHEET_ROWS):
+        state_name = ROW_STATES[row]
+        frames = []
 
-    # 身体暗部（底部阴影）
-    dark_coords = [
-        (10, 27), (11, 27), (21, 27), (22, 27),
-        (12, 28), (13, 28), (19, 28), (20, 28),
-        (14, 28), (15, 28), (16, 28), (17, 28), (18, 28),
-        (8, 26), (9, 26), (23, 26), (24, 26),
-    ]
-    for x, y in dark_coords:
-        p(x, y, pal["body_dark"])
+        for col in range(SPRITESHEET_COLS):
+            # 计算当前格子的像素坐标
+            x = col * CELL_WIDTH
+            y = row * CELL_HEIGHT
 
-    # 肚子（白色区域）
-    belly_coords = [
-        (12, 14), (13, 14), (14, 14), (15, 14), (16, 14), (17, 14), (18, 14), (19, 14),
-        (13, 15), (14, 15), (15, 15), (16, 15), (17, 15), (18, 15),
-        (14, 16), (15, 16), (16, 16), (17, 16),
-    ]
-    for x, y in belly_coords:
-        p(x, y, pal["belly"])
+            # 切出单帧
+            cell = img.crop((x, y, x + CELL_WIDTH, y + CELL_HEIGHT))
 
-    # ---- 耳朵（三角形）----
-    left_ear = [(6, 5), (7, 4), (8, 3), (9, 2), (10, 3), (11, 4), (12, 5)]
-    right_ear = [(20, 5), (21, 4), (22, 3), (23, 2), (24, 3), (25, 4), (26, 5)]
-    for x, y in left_ear + right_ear:
-        p(x, y, pal["body"])
-    # 耳朵内部
-    left_inner = [(9, 4), (10, 4), (10, 5)]
-    right_inner = [(22, 4), (23, 4), (22, 5)]
-    for x, y in left_inner + right_inner:
-        p(x, y, pal["ear_inner"])
+            # 检查是否为空帧（完全透明的格子说明这一行没有更多帧了）
+            if _is_empty_cell(cell):
+                break  # 这一行后续都是空的，跳到下一行
 
-    # ---- 眼睛 ----
-    if frame == 1:  # 眨眼
-        # 闭眼（一条线）
-        for ex in range(9, 13):
-            p(ex, 11, pal["eye_pupil"])
-        for ex in range(20, 24):
-            p(ex, 11, pal["eye_pupil"])
-    else:
-        # 睁眼（白色 + 瞳孔）
-        for ex in [9, 10, 11, 12]:
-            for ey in [10, 11]:
-                p(ex, ey, pal["eye_white"])
-        p(10, 10, pal["eye_pupil"]); p(11, 10, pal["eye_pupil"])
-        p(10, 11, pal["eye_pupil"]); p(11, 11, pal["eye_pupil"])
-        # 高光
-        p(10, 10, pal["eye_white"])
+            # 缩放到显示尺寸（保持 128 高度，宽度等比缩放）
+            scale = 128 / CELL_HEIGHT
+            new_w = int(CELL_WIDTH * scale)
+            cell_resized = cell.resize((new_w, 128), Image.NEAREST)
 
-        for ex in [20, 21, 22, 23]:
-            for ey in [10, 11]:
-                p(ex, ey, pal["eye_white"])
-        p(21, 10, pal["eye_pupil"]); p(22, 10, pal["eye_pupil"])
-        p(21, 11, pal["eye_pupil"]); p(22, 11, pal["eye_pupil"])
-        p(21, 10, pal["eye_white"])
+            # 转 QPixmap
+            buf = io.BytesIO()
+            cell_resized.save(buf, format="PNG")
+            buf.seek(0)
+            pixmap = QPixmap()
+            pixmap.loadFromData(buf.read())
+            frames.append(pixmap)
 
-    # ---- 鼻子 ----
-    p(15, 14, pal["nose"]); p(16, 14, pal["nose"])
-    p(15, 15, pal["nose"]); p(16, 15, pal["nose"])
+        if frames:
+            frames_map[state_name] = frames
 
-    # ---- 嘴巴 ----
-    if frame == 2:  # 张嘴（说话时）
-        p(14, 17, pal["mouth"]); p(15, 17, pal["mouth"])
-        p(16, 17, pal["mouth"]); p(17, 17, pal["mouth"])
-        p(15, 18, pal["mouth"]); p(16, 18, pal["mouth"])
-    else:
-        p(14, 17, pal["mouth"]); p(17, 17, pal["mouth"])
-        p(15, 18, pal["mouth"]); p(16, 18, pal["mouth"])
-
-    # ---- 脚（底部）----
-    left_foot = [(10, 29), (11, 29), (12, 29), (13, 29),
-                 (10, 28), (11, 28)]
-    right_foot = [(19, 29), (20, 29), (21, 29), (22, 29),
-                  (21, 28), (22, 28)]
-    for x, y in left_foot + right_foot:
-        p(x, y, pal["body_dark"])
-
-    # ---- 尾巴（右侧）----
-    tail = [(30, 16), (31, 16),
-            (30, 17), (31, 17),
-            (30, 18), (31, 18),
-            (29, 19), (30, 19),
-            (28, 20), (29, 20),
-            (27, 21), (28, 21)]
-    for x, y in tail:
-        p(x, y, pal["body"])
-
-    # ---- 轮廓线（身体边缘加深）----
-    outline_coords = [
-        (4, 8), (28, 8), (4, 9), (29, 9),
-        (3, 10), (30, 10), (2, 11), (30, 11),
-        (1, 12), (31, 12), (1, 13), (31, 13),
-        (1, 14), (31, 14), (1, 15), (31, 15),
-        (1, 16), (31, 16), (1, 17), (31, 17),
-        (1, 18), (31, 18), (2, 19), (30, 19),
-        (2, 20), (30, 20), (3, 21), (29, 21),
-        (4, 22), (28, 22), (5, 23), (27, 23),
-        (6, 24), (26, 24),
-    ]
-    for x, y in outline_coords:
-        p(x, y, pal["outline"])
-
-    return img
+    return frames_map
 
 
-def generate_all_frames(palette_name: str = "orange_cat") -> dict:
-    """
-    生成所有动画帧。
-
-    返回：
-        {"idle": [frame0, frame1], "blink": [frame1], "talk": [frame2], "sleep": [sleep_frame]}
-    """
-    frames = {
-        "idle": [
-            generate_pixel_pet(palette_name, frame=0),  # 正常
-            generate_pixel_pet(palette_name, frame=0),  # 正常（两帧一样，后续可加变化）
-        ],
-        "blink": [generate_pixel_pet(palette_name, frame=1)],
-        "talk": [generate_pixel_pet(palette_name, frame=2)],
-        "sleep": [_generate_sleep_frame(palette_name)],
-    }
-    return frames
-
-
-def _generate_sleep_frame(palette_name: str) -> Image.Image:
-    """生成睡眠帧（闭眼 + ZZZ）"""
-    img = generate_pixel_pet(palette_name, frame=1)  # 闭眼版本
-    draw = ImageDraw.Draw(img)
-    # 画 ZZZ
-    z_positions = [(20, 8), (25, 4), (30, 1)]
-    for i, (zx, zy) in enumerate(z_positions):
-        size = 10 + i * 2
-        draw.text((zx*4-size//2, zy*4), "Z" * (i+1),
-                  fill=(100, 100, 200, 220),
-                  font=None, font_size=size)
-    return img
+def _is_empty_cell(cell: Image.Image, threshold: float = 0.02) -> bool:
+    """检查精灵格子是否为空（几乎全透明）"""
+    # 取 alpha 通道
+    alpha = cell.split()[-1]
+    # 计算非透明像素的比例
+    total = alpha.size[0] * alpha.size[1]
+    non_transparent = sum(1 for v in alpha.getdata() if v > 30)
+    return (non_transparent / total) < threshold
 
 
 # ============================================================
@@ -262,12 +99,11 @@ def _generate_sleep_frame(palette_name: str) -> Image.Image:
 # ============================================================
 
 def pixelate_image(image_path: str, pixel_size: int = 32, output_size: int = 128) -> QPixmap:
-    """把任意图片处理成像素画风"""
+    """把任意图片处理成像素画风（保留作为自定义图片功能）"""
     img = Image.open(image_path).convert("RGBA")
     img_small = img.resize((pixel_size, pixel_size), Image.NEAREST)
     img_pixel = img_small.resize((output_size, output_size), Image.NEAREST)
 
-    # 去背景：接近白色/浅色的像素变透明
     data = img_pixel.getdata()
     new_data = []
     for pixel in data:
@@ -287,61 +123,114 @@ def pixelate_image(image_path: str, pixel_size: int = 32, output_size: int = 128
 
 
 # ============================================================
-# PetWidget —— 显示像素宠物的 QLabel
+# PetWidget —— 显示精灵动画的 QLabel
 # ============================================================
 
+# 精灵图默认路径（相对于项目根目录）
+DEFAULT_SPRITESHEET = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "assets", "spritesheet.png"
+)
+
+
 class PetWidget(QLabel):
-    """桌宠角色显示组件"""
+    """桌宠角色显示组件 v3 —— 基于精灵图"""
 
     def __init__(self, image_path: str | None = None, size: int = 128):
         super().__init__()
         self.display_size = size
         self._base_pixmap: QPixmap | None = None
-        self._frames: dict | None = None  # 精灵帧缓存
+        self._frames: dict[str, list[QPixmap]] = {}  # 精灵帧缓存
 
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setStyleSheet("background: transparent;")
-        self.setFixedSize(self.display_size, self.display_size)
 
         if image_path:
-            self.load_image(image_path)
+            self.load_custom_image(image_path)
         else:
-            self._create_default_pet()
+            self._load_default_spritesheet()
 
-    def load_image(self, image_path: str):
-        """加载并像素化用户选择的图片"""
-        self._frames = None  # 清除精灵帧
+    def _load_default_spritesheet(self):
+        """加载默认精灵图（Aemeath Mini 爱弥斯）"""
+        if os.path.exists(DEFAULT_SPRITESHEET):
+            print(f"🐱 加载精灵图：{DEFAULT_SPRITESHEET}")
+            self._frames = load_spritesheet_png(DEFAULT_SPRITESHEET)
+            # 用 idle 第一帧作为默认显示
+            if "idle" in self._frames and self._frames["idle"]:
+                self._base_pixmap = self._frames["idle"][0]
+            else:
+                # 取第一个可用的帧
+                for frames in self._frames.values():
+                    if frames:
+                        self._base_pixmap = frames[0]
+                        break
+        else:
+            print("⚠️ 精灵图不存在，使用默认像素猫")
+            self._create_fallback_pet()
+
+        if self._base_pixmap:
+            scaled = self._base_pixmap.scaled(
+                self.display_size, self.display_size,
+                Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+            self.setPixmap(scaled)
+            self.setFixedSize(self.display_size, self.display_size)
+
+    def load_custom_image(self, image_path: str):
+        """加载用户自选图片（像素化）"""
+        self._frames = {}  # 清除精灵帧
         self._base_pixmap = pixelate_image(image_path, output_size=self.display_size)
         self.setPixmap(self._base_pixmap.scaled(
             self.display_size, self.display_size,
             Qt.KeepAspectRatio, Qt.SmoothTransformation
         ))
+        self.setFixedSize(self.display_size, self.display_size)
 
-    def _create_default_pet(self):
-        """生成默认像素风橘猫"""
-        self._frames = generate_all_frames("orange_cat")
-        img = self._frames["idle"][0]
+    def _create_fallback_pet(self):
+        """精灵图不可用时的兜底：生成简单像素猫"""
+        from ui.pet_widget import generate_pixel_pet
+        # 动态导入，避免循环引用
+        pass  # 使用旧的 generate_pixel_pet 做兜底
+        # 简单方案：创建一个彩色方块
+        img = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+        from PIL import ImageDraw
+        draw = ImageDraw.Draw(img)
+        draw.ellipse([10, 10, 118, 118], fill=(255, 200, 100, 255))
+        draw.ellipse([35, 40, 55, 60], fill=(0, 0, 0, 255))
+        draw.ellipse([73, 40, 93, 60], fill=(0, 0, 0, 255))
+        draw.arc([40, 60, 88, 90], start=0, end=180, fill=(0, 0, 0, 255), width=3)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         buf.seek(0)
         self._base_pixmap = QPixmap()
         self._base_pixmap.loadFromData(buf.read())
         self.setPixmap(self._base_pixmap)
+        self.setFixedSize(self.display_size, self.display_size)
 
     def get_frame(self, state: str, index: int = 0) -> QPixmap | None:
-        """获取精灵动画帧"""
-        if self._frames and state in self._frames:
+        """
+        获取指定状态的精灵帧。
+
+        参数：
+            state: 动画状态名（"idle", "waving", "jumping", "waiting", "failed", "running-right" 等）
+            index: 该状态中的第几帧（会自动循环）
+
+        返回：
+            QPixmap 或 None
+        """
+        if state in self._frames and self._frames[state]:
             frames = self._frames[state]
             idx = index % len(frames)
-            img = frames[idx]
-            buf = io.BytesIO()
-            img.save(buf, format="PNG")
-            buf.seek(0)
-            pixmap = QPixmap()
-            pixmap.loadFromData(buf.read())
-            return pixmap
+            return frames[idx]
+        # 回退到 idle
+        if "idle" in self._frames and self._frames["idle"]:
+            return self._frames["idle"][index % len(self._frames["idle"])]
         return None
 
+    def get_all_frames(self, state: str) -> list[QPixmap]:
+        """获取指定状态的所有帧"""
+        return self._frames.get(state, [])
+
     def get_pixmap(self) -> QPixmap:
-        """获取当前显示的 Pixmap"""
+        """获取当前默认 Pixmap"""
         return self._base_pixmap
