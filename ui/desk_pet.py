@@ -216,7 +216,7 @@ class DeskPet(QMainWindow):
         bubble_pos = QPoint(pet_pos.x() - 5, pet_pos.y() - 60)
 
         # 显示气泡
-        self.bubble.show_message(text, bubble_pos, duration_ms=4000)
+        self.bubble.show_message(text, bubble_pos, duration_ms=5000)  # 5 秒，方便截屏
 
         # TTS 语音（后台线程，避免阻塞主线程）
         if self._tts_enabled and self._tts_engine:
