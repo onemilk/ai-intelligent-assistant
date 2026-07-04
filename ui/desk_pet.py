@@ -108,6 +108,7 @@ class DeskPet(QMainWindow):
             print(f"📝 恢复会话：{self._conv_id}（最近 {loaded} 条，占窗口 ~{pct:.0f}%）")
 
         # ---- AI 后端 ----
+        self._model = config.get("api.model")  # 从配置读取模型
         self._client = get_client(model=self._model)
         self._tools = get_definitions()
 
@@ -139,9 +140,6 @@ class DeskPet(QMainWindow):
         # 初始位置：屏幕右下角
         screen = QApplication.primaryScreen().availableGeometry()
         self.move(screen.right() - 200, screen.bottom() - 200)
-
-        # 模型从配置读取
-        self._model = config.get("api.model")
 
     # ================================================================
     # 动画帧更新 + 眼球绘制
