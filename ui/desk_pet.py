@@ -5,7 +5,7 @@
 import sys
 import threading
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu
-from PySide6.QtCore import Qt, QPoint, QTimer
+from PySide6.QtCore import Qt, QPoint, QTimer, Signal
 from PySide6.QtGui import QAction
 
 from ui.pet_widget import PetWidget
@@ -30,6 +30,9 @@ class DeskPet(QMainWindow):
         - AI 回复 → 气泡 + TTS 语音
         - 右键菜单
     """
+
+    # 自定义信号：后台线程完成 AI 调用后，通过信号回主线程显示
+    ai_reply_ready = Signal(str)
 
     def __init__(self, image_path: str | None = None):
         super().__init__()
@@ -64,6 +67,9 @@ class DeskPet(QMainWindow):
         # ---- 输入框 ----
         self.input_popup = InputPopup()
         self.input_popup.message_submitted.connect(self._on_user_message)
+
+        # ---- 信号连接：AI 回复 → 显示气泡 ----
+        self.ai_reply_ready.connect(self._show_reply)
 
         # ---- AI 后端 ----
         self._client = get_client(model="deepseek-v4-flash")
@@ -156,13 +162,13 @@ class DeskPet(QMainWindow):
                 print(f"[桌宠] 后台线程启动，开始调用 AI...")
                 ai_reply, _ = self._call_ai()
                 print(f"[桌宠] AI 调用完成，回复长度：{len(ai_reply)}")
-                # 用默认参数捕获值，避免 lambda 闭包延迟绑定的坑
-                QTimer.singleShot(0, lambda r=ai_reply: self._show_reply(r))
+                # 通过信号回主线程（线程安全的通信方式）
+                self.ai_reply_ready.emit(ai_reply)
             except Exception as e:
                 import traceback
                 print(f"[桌宠] AI 调用异常：{e}")
                 traceback.print_exc()
-                QTimer.singleShot(0, lambda err=str(e): self._show_reply(f"出错啦：{err}"))
+                self.ai_reply_ready.emit(f"出错啦：{e}")
 
         threading.Thread(target=ai_thread, daemon=True).start()
 
