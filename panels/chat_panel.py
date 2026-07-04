@@ -49,9 +49,9 @@ st.markdown("""
 # 初始化
 # ================================================================
 
-@st.cache_resource
 def init_app():
-    """初始化 AI 后端（只执行一次，全局缓存）"""
+    """初始化 AI 后端"""
+    # 确保数据库表存在（每次都检查，因为可能被删除）
     storage.init_db()
     client = get_client(model="deepseek-v4-flash")
     tools = get_definitions()
