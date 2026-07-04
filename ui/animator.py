@@ -7,7 +7,7 @@ idle（待机）→ thinking（思考）→ talking（说话）→ idle → ...
 """
 import random
 from PySide6.QtCore import QTimer, QObject, Signal, Qt
-from PySide6.QtGui import QPixmap, QTransform
+from PySide6.QtGui import QPixmap, QTransform, QPainter, QColor, QFont
 from enum import Enum, auto
 
 
@@ -125,11 +125,34 @@ class Animator(QObject):
         return self._base_pixmap.transformed(transform, Qt.SmoothTransformation)
 
     def _apply_sleeping(self, size: int, transform: QTransform) -> QPixmap:
-        """休眠动画——极缓慢呼吸"""
+        """休眠动画——极缓慢呼吸 + ZZZ 文字"""
         import math
         scale = 1.0 + 0.02 * math.sin(self._frame * math.pi / 60)
         transform.scale(scale, scale)
-        return self._base_pixmap.transformed(transform, Qt.SmoothTransformation)
+
+        # 在图上绘制 ZZZ
+        pixmap = self._base_pixmap.copy()
+        painter = QPainter(pixmap)
+        painter.setFont(QFont("Microsoft YaHei", 14, QFont.Bold))
+        painter.setPen(QColor(100, 100, 200, 200))
+
+        # ZZZ 逐个上浮
+        z_frame = (self._frame // 20) % 3
+        zzz_texts = ["Z", "Zz", "Zzz"]
+        for i in range(z_frame + 1):
+            y_offset = -10 - i * 15 + (self._frame % 20) * 1  # 缓慢上浮
+            painter.drawText(size - 30, 20 + y_offset, zzz_texts[i])
+
+        painter.end()
+        return pixmap.transformed(transform, Qt.SmoothTransformation)
+
+    def _random_idle_action(self):
+        """每隔 5-15 秒随机切换待机动作"""
+        if self._state != PetState.IDLE:
+            return
+        actions = ["breathe", "breathe", "blink", "blink", "hop", "shake", "walk"]
+        self._idle_action = random.choice(actions)
+        self._idle_timer.setInterval(random.randint(5000, 15000))
 
     def _random_idle_action(self):
         """每隔 5-15 秒随机切换待机动作"""

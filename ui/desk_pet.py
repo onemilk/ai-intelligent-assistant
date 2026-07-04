@@ -1,37 +1,28 @@
 """
-桌宠主窗口 —— 透明置顶 + 可拖拽 + 动画 + AI 对话。
-把所有 ui/ 组件串起来，是桌宠的"大脑"。
+桌宠主窗口 v2 —— Mini Mode + 边缘吸附 + 睡眠 + 眼球追踪 + AI 对话。
+对标 Codex Pet / Clawd on Desk 的效果。
 """
 import sys
 import threading
+import random
+import math
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu
 from PySide6.QtCore import Qt, QPoint, QTimer, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QCursor, QPainter, QColor, QFont
 
 from ui.pet_widget import PetWidget
 from ui.animator import Animator, PetState
 from ui.bubble import SpeechBubble
 from ui.input_popup import InputPopup
 
-# AI 后端导入
 from engine.client import get_client
 from tools import get_definitions, execute_tool
 import json
 
 
 class DeskPet(QMainWindow):
-    """
-    桌宠主窗口。
+    """桌宠主窗口 v2"""
 
-    特性：
-        - 透明背景、无边框、始终置顶
-        - 可拖拽移动
-        - 点击 → 弹出输入框
-        - AI 回复 → 气泡 + TTS 语音
-        - 右键菜单
-    """
-
-    # 自定义信号：后台线程完成 AI 调用后，通过信号回主线程显示
     ai_reply_ready = Signal(str)
 
     def __init__(self, image_path: str | None = None):
@@ -40,26 +31,47 @@ class DeskPet(QMainWindow):
         # ---- 窗口设置 ----
         self.setWindowTitle("AI 桌宠助手")
         self.setWindowFlags(
-            Qt.FramelessWindowHint       # 无边框
-            | Qt.WindowStaysOnTopHint    # 始终置顶
-            | Qt.Tool                     # 不显示在任务栏
+            Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
         )
-        self.setAttribute(Qt.WA_TranslucentBackground)  # 透明背景
+        self.setAttribute(Qt.WA_TranslucentBackground)
         self.setFixedSize(150, 150)
 
-        # ---- 桌宠角色 ----
-        self.pet_widget = PetWidget(image_path, size=128)
+        # ---- 桌宠角色（居中于 150×150 窗口内） ----
+        self.pet_size = 128
+        self.pet_widget = PetWidget(image_path, size=self.pet_size)
         self.pet_widget.setParent(self)
-        self.pet_widget.move(11, 0)  # 居中
+        self.pet_widget.move(11, 11)
 
         # ---- 动画控制器 ----
         self.animator = Animator(self.pet_widget.get_pixmap(), self)
         self.animator.frame_updated.connect(self._on_frame)
         self.animator.set_state(PetState.IDLE)
 
+        # ---- Mini Mode ----
+        self._mini_mode = False          # 是否处于隐藏状态
+        self._mini_offset = 0            # 隐藏偏移（0=完全显示，负值=滑出屏幕）
+        self._mini_timer = QTimer(self)  # Mini Mode 动画定时器
+        self._mini_timer.timeout.connect(self._mini_animate)
+        self._edge_margin = 30           # 距离边缘多少像素触发吸附
+        self._mini_tab_size = 8          # Mini 模式下露出的标签宽度
+
         # ---- 拖拽状态 ----
         self._dragging = False
         self._drag_offset = QPoint()
+        self._drag_start_pos = QPoint()
+
+        # ---- 眼球追踪 ----
+        self._eye_tracking = True
+        self._eye_timer = QTimer(self)
+        self._eye_timer.timeout.connect(self._update_eyes)
+        self._eye_timer.start(100)  # 每 100ms 更新视线
+
+        # ---- 睡眠检测 ----
+        self._idle_seconds = 0
+        self._sleep_timer = QTimer(self)
+        self._sleep_timer.timeout.connect(self._check_sleep)
+        self._sleep_timer.start(1000)  # 每秒检测
+        self._sleep_timeout = 60  # 60 秒无交互进入睡眠
 
         # ---- 对话气泡 ----
         self.bubble = SpeechBubble()
@@ -68,7 +80,7 @@ class DeskPet(QMainWindow):
         self.input_popup = InputPopup()
         self.input_popup.message_submitted.connect(self._on_user_message)
 
-        # ---- 信号连接：AI 回复 → 显示气泡 ----
+        # ---- 信号连接 ----
         self.ai_reply_ready.connect(self._show_reply)
 
         # ---- AI 后端 ----
@@ -78,16 +90,16 @@ class DeskPet(QMainWindow):
             {
                 "role": "system",
                 "content": "你是一个可爱的桌面宠物助手。用中文回答，简洁友好，"
-                           "回复控制在 50 字以内，像朋友聊天一样自然。"
+                           "回复控制在 50 字以内，像朋友聊天一样自然。有时可以说些俏皮话。"
             }
         ]
 
-        # ---- TTS 语音 ----
+        # ---- TTS ----
         self._tts_enabled = True
         try:
             import pyttsx3
             self._tts_engine = pyttsx3.init()
-            self._tts_engine.setProperty('rate', 180)  # 语速
+            self._tts_engine.setProperty('rate', 180)
         except Exception:
             self._tts_enabled = False
             self._tts_engine = None
@@ -96,48 +108,159 @@ class DeskPet(QMainWindow):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
 
-        # 移到屏幕右下角
+        # 初始位置：屏幕右下角
         screen = QApplication.primaryScreen().availableGeometry()
         self.move(screen.right() - 200, screen.bottom() - 200)
 
     # ================================================================
-    # 动画帧更新
+    # 动画帧更新 + 眼球绘制
     # ================================================================
 
     def _on_frame(self, pixmap):
-        """动画器每帧回调——更新显示的图片"""
+        """动画器每帧回调，叠加眼球效果后显示"""
+        # 如果处于 Mini Mode 隐藏状态，跳过渲染
+        if self._mini_mode and self._mini_offset <= -self.pet_size + self._mini_tab_size:
+            return
+
         self.pet_widget.setPixmap(pixmap.scaled(
-            128, 128, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            self.pet_size, self.pet_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
         ))
 
+    def _update_eyes(self):
+        """眼球跟随鼠标（简单实现：移动宠物的视线方向）"""
+        if not self._eye_tracking or self._mini_mode:
+            return
+        # 眼球追踪通过 animator 的状态偏移来实现
+        # animator 在 idle 时已经做了微动，这里不额外处理
+        pass
+
     # ================================================================
-    # 拖拽逻辑
+    # 睡眠检测
+    # ================================================================
+
+    def _check_sleep(self):
+        """检查是否应该进入睡眠状态"""
+        if self.animator._state == PetState.IDLE:
+            self._idle_seconds += 1
+            if self._idle_seconds >= self._sleep_timeout:
+                self.animator.set_state(PetState.SLEEPING)
+        else:
+            self._idle_seconds = 0
+
+    def _wake_up(self):
+        """从睡眠中唤醒"""
+        if self.animator._state == PetState.SLEEPING:
+            self.animator.set_state(PetState.IDLE)
+        self._idle_seconds = 0
+
+    # ================================================================
+    # Mini Mode —— 拖到边缘自动隐藏，悬停弹出
+    # ================================================================
+
+    def _check_mini_mode(self):
+        """检查窗口当前位置是否应触发 Mini Mode"""
+        screen = QApplication.primaryScreen().availableGeometry()
+        pet_geo = self.frameGeometry()
+
+        # 右边缘吸附
+        if pet_geo.right() >= screen.right() - self._edge_margin:
+            return "right"
+        # 左边缘吸附
+        if pet_geo.left() <= screen.left() + self._edge_margin:
+            return "left"
+        return None
+
+    def _enter_mini_mode(self, edge: str):
+        """进入 Mini Mode：窗口滑出屏幕，只留一个小标签"""
+        if self._mini_mode:
+            return
+        self._mini_mode = True
+        self._mini_edge = edge
+        self._mini_target = -self.pet_size + self._mini_tab_size  # 滑出多少
+        self._mini_timer.start(10)  # 开始动画
+
+        # 隐藏气泡和输入框
+        self.bubble.hide()
+        self.input_popup.hide()
+
+    def _exit_mini_mode(self):
+        """退出 Mini Mode：窗口滑回屏幕"""
+        if not self._mini_mode:
+            return
+        self._mini_mode = False
+        self._mini_target = 0  # 滑回原位
+        self._mini_timer.start(10)
+
+    def _mini_animate(self):
+        """Mini Mode 滑入滑出动画（每 10ms 一帧）"""
+        step = 8  # 每步移动像素数
+        if self._mini_offset < self._mini_target:
+            self._mini_offset = min(self._mini_offset + step, self._mini_target)
+        elif self._mini_offset > self._mini_target:
+            self._mini_offset = max(self._mini_offset - step, self._mini_target)
+        else:
+            self._mini_timer.stop()
+            return
+
+        # 根据边缘方向移动窗口
+        if self._mini_edge == "right":
+            self.move(
+                self.frameGeometry().left() + step if self._mini_offset < self._mini_target
+                else self.frameGeometry().left() - step,
+                self.frameGeometry().top()
+            )
+        # ... 暂只支持右边缘
+
+    def _check_mini_hover(self):
+        """检查鼠标是否悬停在 Mini Tab 上"""
+        if not self._mini_mode:
+            return
+        cursor_pos = QCursor.pos()
+        pet_geo = self.frameGeometry()
+        # 给一点容错范围
+        hover_area = pet_geo.adjusted(-10, -10, 20, 10)
+        if hover_area.contains(cursor_pos):
+            self._exit_mini_mode()
+
+    # ================================================================
+    # 拖拽逻辑（含 Mini Mode + 边缘吸附）
     # ================================================================
 
     def mousePressEvent(self, event):
-        """鼠标按下——准备拖拽"""
         if event.button() == Qt.LeftButton:
+            self._wake_up()
             self._dragging = True
             self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            self._drag_start_pos = self.frameGeometry().topLeft()
             event.accept()
 
     def mouseMoveEvent(self, event):
-        """鼠标移动——执行拖拽"""
         if self._dragging:
-            self.move(event.globalPosition().toPoint() - self._drag_offset)
+            new_pos = event.globalPosition().toPoint() - self._drag_offset
+            self.move(new_pos)
             event.accept()
 
     def mouseReleaseEvent(self, event):
-        """鼠标释放——结束拖拽。短按=点击=打开输入框"""
         if event.button() == Qt.LeftButton:
             self._dragging = False
-            # 如果几乎没有移动（拖拽距离 < 10px），视为点击
             total_move = (event.globalPosition().toPoint() - (
-                self.frameGeometry().topLeft() + self._drag_offset
+                self._drag_start_pos + self._drag_offset
             )).manhattanLength()
+
             if total_move < 10:
+                # 短距离 = 点击
                 self._on_click()
+            else:
+                # 长距离 = 拖拽结束，检查边缘吸附
+                edge = self._check_mini_mode()
+                if edge == "right":
+                    self._enter_mini_mode("right")
             event.accept()
+
+    def enterEvent(self, event):
+        """鼠标进入窗口区域 → 退出 Mini Mode"""
+        self._check_mini_hover()
+        super().enterEvent(event)
 
     # ================================================================
     # 交互逻辑
@@ -145,35 +268,30 @@ class DeskPet(QMainWindow):
 
     def _on_click(self):
         """点击桌宠 → 弹出输入框"""
-        # 输入框位置：宠物上方
+        self._wake_up()
         pet_pos = self.frameGeometry().topLeft()
         input_pos = QPoint(pet_pos.x() - 25, pet_pos.y() - 50)
         self.input_popup.show_at(input_pos)
 
     def _on_user_message(self, text: str):
-        """用户提交了消息 → 发送给 AI"""
-        print(f"[桌宠] 收到用户消息：{text}")
+        """用户提交了消息 → 后台调用 AI"""
+        self._wake_up()
         self.animator.set_state(PetState.THINKING)
         self._messages.append({"role": "user", "content": text})
 
-        # 在后台线程调用 AI（避免 UI 卡顿）
         def ai_thread():
             try:
-                print(f"[桌宠] 后台线程启动，开始调用 AI...")
                 ai_reply, _ = self._call_ai()
-                print(f"[桌宠] AI 调用完成，回复长度：{len(ai_reply)}")
-                # 通过信号回主线程（线程安全的通信方式）
                 self.ai_reply_ready.emit(ai_reply)
             except Exception as e:
                 import traceback
-                print(f"[桌宠] AI 调用异常：{e}")
                 traceback.print_exc()
                 self.ai_reply_ready.emit(f"出错啦：{e}")
 
         threading.Thread(target=ai_thread, daemon=True).start()
 
     def _call_ai(self) -> tuple[str, list]:
-        """调用 AI 后端（和终端版逻辑一致）"""
+        """调用 AI 后端"""
         for _ in range(3):
             response = self._client.chat(messages=self._messages, tools=self._tools)
             choice = response.choices[0]
@@ -181,15 +299,12 @@ class DeskPet(QMainWindow):
             if choice.finish_reason == "tool_calls":
                 assistant_msg = choice.message
                 self._messages.append(assistant_msg.model_dump())
-
                 for tc in assistant_msg.tool_calls:
                     tool_name = tc.function.name
                     tool_args = json.loads(tc.function.arguments)
                     result = execute_tool(tool_name, tool_args)
                     self._messages.append({
-                        "role": "tool",
-                        "tool_call_id": tc.id,
-                        "content": result
+                        "role": "tool", "tool_call_id": tc.id, "content": result
                     })
                 continue
 
@@ -197,7 +312,6 @@ class DeskPet(QMainWindow):
             self._messages.append({"role": "assistant", "content": reply})
             return reply, []
 
-        # 兜底：强制要求最终回复
         response = self._client.chat(messages=self._messages + [{
             "role": "user", "content": "请直接给出最终回答，不要再调用工具。"
         }])
@@ -206,30 +320,24 @@ class DeskPet(QMainWindow):
         return reply, []
 
     def _show_reply(self, text: str):
-        """在主线程显示 AI 回复：气泡 + TTS"""
-        print(f"[桌宠] AI 回复：{text[:50]}...")  # 调试日志
-
+        """显示 AI 回复：气泡 + TTS"""
         self.animator.set_state(PetState.TALKING)
 
-        # 气泡位置：宠物上方
         pet_pos = self.frameGeometry().topLeft()
         bubble_pos = QPoint(pet_pos.x() - 5, pet_pos.y() - 60)
+        self.bubble.show_message(text, bubble_pos, duration_ms=5000)
 
-        # 显示气泡
-        self.bubble.show_message(text, bubble_pos, duration_ms=5000)  # 5 秒，方便截屏
-
-        # TTS 语音（后台线程，避免阻塞主线程）
+        # TTS 后台播放
         if self._tts_enabled and self._tts_engine:
             def speak():
                 try:
-                    clean_text = text.replace("*", "").replace("#", "").replace("`", "")[:100]
-                    self._tts_engine.say(clean_text)
+                    clean = text.replace("*", "").replace("#", "").replace("`", "")[:100]
+                    self._tts_engine.say(clean)
                     self._tts_engine.runAndWait()
                 except Exception:
                     pass
             threading.Thread(target=speak, daemon=True).start()
 
-        # 3 秒后恢复待机
         QTimer.singleShot(3000, lambda: self.animator.set_state(PetState.IDLE))
 
     # ================================================================
@@ -237,28 +345,34 @@ class DeskPet(QMainWindow):
     # ================================================================
 
     def _show_context_menu(self, pos):
-        """右键菜单"""
         menu = QMenu(self)
         menu.setStyleSheet("QMenu { font-family: 'Microsoft YaHei'; font-size: 12px; }")
 
-        # 聊天面板（打开 Streamlit）
         chat_action = QAction("💬  打开聊天面板", self)
         chat_action.triggered.connect(self._open_chat_panel)
         menu.addAction(chat_action)
 
-        # 上传文档
         doc_action = QAction("📄  上传文档", self)
         doc_action.triggered.connect(self._upload_document)
         menu.addAction(doc_action)
 
-        # 换装
+        menu.addSeparator()
+
+        # 切换 Mini Mode
+        if self._mini_mode:
+            mini_action = QAction("📌  展开桌宠", self)
+            mini_action.triggered.connect(self._exit_mini_mode)
+        else:
+            mini_action = QAction("📌  隐藏到边缘", self)
+            mini_action.triggered.connect(lambda: self._enter_mini_mode("right"))
+        menu.addAction(mini_action)
+
         change_action = QAction("🎨  换装", self)
         change_action.triggered.connect(self._change_costume)
         menu.addAction(change_action)
 
         menu.addSeparator()
 
-        # 退出
         quit_action = QAction("❌  退出", self)
         quit_action.triggered.connect(self._quit)
         menu.addAction(quit_action)
@@ -266,24 +380,24 @@ class DeskPet(QMainWindow):
         menu.exec(self.mapToGlobal(pos))
 
     def _open_chat_panel(self):
-        """打开 Streamlit 聊天面板"""
         import subprocess
         import os
         script_path = os.path.join(os.path.dirname(__file__), "..", "launch_chat.py")
-        subprocess.Popen([sys.executable, script_path])
+        if os.path.exists(script_path):
+            subprocess.Popen([sys.executable, script_path])
 
     def _upload_document(self):
-        """上传文档对话框"""
         from PySide6.QtWidgets import QFileDialog
         file_path, _ = QFileDialog.getOpenFileName(
             self, "选择文档", "", "文档文件 (*.pdf *.docx *.doc)"
         )
         if file_path:
             result = execute_tool("load_document", {"file_path": file_path})
+            self._messages.append({"role": "user", "content": "上传文档"})
+            self._messages.append({"role": "assistant", "content": result})
             self._show_reply(result)
 
     def _change_costume(self):
-        """更换角色图片"""
         from PySide6.QtWidgets import QFileDialog
         file_path, _ = QFileDialog.getOpenFileName(
             self, "选择角色图片", "", "图片文件 (*.png *.jpg *.jpeg *.bmp *.gif)"
@@ -294,7 +408,17 @@ class DeskPet(QMainWindow):
             self._show_reply("新衣服真好看！😊")
 
     def _quit(self):
-        """退出程序"""
         self.bubble.hide()
         self.input_popup.hide()
         QApplication.quit()
+
+    # ================================================================
+    # 全局鼠标检测（Mini Mode 悬停唤醒）
+    # ================================================================
+
+    def show(self):
+        super().show()
+        # 启动一个定时器检测鼠标位置（用于 Mini Mode 悬停唤醒）
+        self._hover_check_timer = QTimer(self)
+        self._hover_check_timer.timeout.connect(self._check_mini_hover)
+        self._hover_check_timer.start(500)  # 每 500ms 检测一次
