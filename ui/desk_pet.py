@@ -153,11 +153,14 @@ class DeskPet(QMainWindow):
         # 在后台线程调用 AI（避免 UI 卡顿）
         def ai_thread():
             try:
+                print(f"[桌宠] 后台线程启动，开始调用 AI...")
                 ai_reply, _ = self._call_ai()
+                print(f"[桌宠] AI 调用完成，回复长度：{len(ai_reply)}")
                 # 用默认参数捕获值，避免 lambda 闭包延迟绑定的坑
                 QTimer.singleShot(0, lambda r=ai_reply: self._show_reply(r))
             except Exception as e:
                 import traceback
+                print(f"[桌宠] AI 调用异常：{e}")
                 traceback.print_exc()
                 QTimer.singleShot(0, lambda err=str(e): self._show_reply(f"出错啦：{err}"))
 
