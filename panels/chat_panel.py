@@ -51,8 +51,6 @@ st.markdown("""
 
 def init_app():
     """初始化 AI 后端"""
-    # 确保数据库表存在（每次都检查，因为可能被删除）
-    storage.init_db()
     client = get_client(model="deepseek-v4-flash")
     tools = get_definitions()
     return client, tools
@@ -269,5 +267,7 @@ def render_chat():
 # ================================================================
 
 if __name__ == "__main__":
+    # 先初始化数据库（必须在 sidebar 和 chat 之前）
+    storage.init_db()
     render_sidebar()
     render_chat()
