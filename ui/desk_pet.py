@@ -146,28 +146,26 @@ class DeskPet(QMainWindow):
 
     def _on_user_message(self, text: str):
         """用户提交了消息 → 发送给 AI"""
-        # 切换思考状态
         self.animator.set_state(PetState.THINKING)
-
-        # 在后台线程调用 AI（避免 UI 卡顿）
         self._messages.append({"role": "user", "content": text})
 
+        # 在后台线程调用 AI（避免 UI 卡顿）
         def ai_thread():
             try:
                 ai_reply, _ = self._call_ai()
-                # 回主线程显示
-                QTimer.singleShot(0, lambda: self._show_reply(ai_reply))
+                # 用默认参数捕获值，避免 lambda 闭包延迟绑定的坑
+                QTimer.singleShot(0, lambda r=ai_reply: self._show_reply(r))
             except Exception as e:
-                QTimer.singleShot(0, lambda: self._show_reply(f"哎呀，出错了：{e}"))
+                import traceback
+                traceback.print_exc()
+                QTimer.singleShot(0, lambda err=str(e): self._show_reply(f"出错啦：{err}"))
 
         threading.Thread(target=ai_thread, daemon=True).start()
 
     def _call_ai(self) -> tuple[str, list]:
         """调用 AI 后端（和终端版逻辑一致）"""
-        tools = self._tools
-
         for _ in range(3):
-            response = self._client.chat(messages=self._messages, tools=tools)
+            response = self._client.chat(messages=self._messages, tools=self._tools)
             choice = response.choices[0]
 
             if choice.finish_reason == "tool_calls":
@@ -189,7 +187,7 @@ class DeskPet(QMainWindow):
             self._messages.append({"role": "assistant", "content": reply})
             return reply, []
 
-        # 兜底
+        # 兜底：强制要求最终回复
         response = self._client.chat(messages=self._messages + [{
             "role": "user", "content": "请直接给出最终回答，不要再调用工具。"
         }])
@@ -199,7 +197,8 @@ class DeskPet(QMainWindow):
 
     def _show_reply(self, text: str):
         """在主线程显示 AI 回复：气泡 + TTS"""
-        # 切换说话状态
+        print(f"[桌宠] AI 回复：{text[:50]}...")  # 调试日志
+
         self.animator.set_state(PetState.TALKING)
 
         # 气泡位置：宠物上方
@@ -209,15 +208,16 @@ class DeskPet(QMainWindow):
         # 显示气泡
         self.bubble.show_message(text, bubble_pos, duration_ms=4000)
 
-        # TTS 语音
+        # TTS 语音（后台线程，避免阻塞主线程）
         if self._tts_enabled and self._tts_engine:
-            try:
-                # 去掉 markdown 格式再朗读
-                clean_text = text.replace("*", "").replace("#", "").replace("`", "")[:100]
-                self._tts_engine.say(clean_text)
-                self._tts_engine.runAndWait()
-            except Exception:
-                pass
+            def speak():
+                try:
+                    clean_text = text.replace("*", "").replace("#", "").replace("`", "")[:100]
+                    self._tts_engine.say(clean_text)
+                    self._tts_engine.runAndWait()
+                except Exception:
+                    pass
+            threading.Thread(target=speak, daemon=True).start()
 
         # 3 秒后恢复待机
         QTimer.singleShot(3000, lambda: self.animator.set_state(PetState.IDLE))
