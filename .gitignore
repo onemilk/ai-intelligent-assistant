@@ -11,3 +11,6 @@ wheels/
 
 # 环境变量（包含API Key等敏感信息，绝对不能提交！）
 .env
+
+# ChromaDB 向量数据库文件（运行时生成，不应提交）
+chroma_data/
