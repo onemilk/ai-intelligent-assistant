@@ -6,9 +6,9 @@ import sys
 import threading
 import random
 import math
-from PySide6.QtWidgets import QApplication, QMainWindow, QMenu
+from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QSystemTrayIcon
 from PySide6.QtCore import Qt, QPoint, QTimer, Signal
-from PySide6.QtGui import QAction, QCursor, QPainter, QColor, QFont
+from PySide6.QtGui import QAction, QCursor, QIcon
 
 from ui.pet_widget import PetWidget
 from ui.animator import Animator, PetState
@@ -90,6 +90,9 @@ class DeskPet(QMainWindow):
 
         # ---- 信号连接 ----
         self.ai_reply_ready.connect(self._show_reply)
+
+        # ---- 系统托盘 ----
+        self._setup_tray()
 
         # ---- 对话持久化 ----
         storage.init_db()  # 确保数据库表存在
@@ -174,6 +177,45 @@ class DeskPet(QMainWindow):
                 self._set_pet_state(PetState.SLEEPING)
         else:
             self._idle_seconds = 0
+
+    def _setup_tray(self):
+        """初始化系统托盘图标"""
+        self._tray = QSystemTrayIcon(self)
+        # 用精灵图做托盘图标
+        icon_pixmap = self.pet_widget.get_pixmap()
+        if icon_pixmap:
+            self._tray.setIcon(QIcon(icon_pixmap))
+        self._tray.setToolTip("AI 桌宠助手 🐱")
+
+        # 托盘菜单
+        tray_menu = QMenu()
+        show_action = QAction("🐱  显示/隐藏桌宠", self)
+        show_action.triggered.connect(self._toggle_visible)
+        tray_menu.addAction(show_action)
+        tray_menu.addSeparator()
+        quit_action = QAction("❌  退出", self)
+        quit_action.triggered.connect(self._quit)
+        tray_menu.addAction(quit_action)
+        self._tray.setContextMenu(tray_menu)
+
+        # 点击托盘图标切换显示
+        self._tray.activated.connect(self._on_tray_activated)
+        self._tray.show()
+
+    def _on_tray_activated(self, reason):
+        """托盘图标被点击——显示/隐藏桌宠"""
+        if reason == QSystemTrayIcon.Trigger:  # 左键单击
+            self._toggle_visible()
+
+    def _toggle_visible(self):
+        """切换桌宠可见性"""
+        if self.isVisible():
+            self.hide()
+            self.bubble.hide()
+            self.input_popup.hide()
+        else:
+            self.show()
+            self._set_pet_state(PetState.IDLE)
 
     def _wake_up(self):
         """从睡眠中唤醒"""
@@ -401,10 +443,19 @@ class DeskPet(QMainWindow):
         return reply, []
 
     def _show_reply(self, text: str):
-        """显示 AI 回复：气泡 + TTS"""
+        """显示 AI 回复：气泡 + TTS + 系统通知"""
         self._set_pet_state(PetState.TALKING)
 
-        # 运行时保护：超过 3500 条消息时，保留 system 消息 + 最近 3000 条
+        # 如果桌宠隐藏或在 Mini Mode，发送系统通知
+        if not self.isVisible() or self._mini_mode:
+            self._tray.showMessage(
+                "AI 桌宠助手",
+                text[:100] + ("..." if len(text) > 100 else ""),
+                QSystemTrayIcon.Information,
+                3000  # 3 秒后自动消失
+            )
+
+        # 运行时保护
         if len(self._messages) > 3500:
             system = self._messages[0] if self._messages[0]["role"] == "system" else None
             self._messages = self._messages[-3000:]
