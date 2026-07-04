@@ -1,5 +1,4 @@
 """自主工作流工具——用户一句话，AI 自己干完整个流程"""
-from engine.autonomous import run_autonomous_task
 
 TOOL_DEFINITION = {
     "type": "function",
@@ -26,7 +25,8 @@ TOOL_DEFINITION = {
 
 
 def execute(goal: str) -> str:
-    """启动自主工作流"""
+    """启动自主工作流（延迟导入避免循环引用）"""
+    from engine.autonomous import run_autonomous_task
     try:
         return run_autonomous_task(goal, max_steps=10)
     except Exception as e:

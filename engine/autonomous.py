@@ -4,7 +4,6 @@
 """
 import json
 from engine.client import get_client
-from tools import get_definitions, execute_tool
 
 
 # 系统提示词——告诉 AI 它现在是一个自主 Agent
@@ -36,6 +35,9 @@ def run_autonomous_task(goal: str, max_steps: int = 10) -> str:
     返回：
         最终结果文本
     """
+    # 延迟导入避免循环引用
+    from tools import get_definitions, execute_tool
+
     client = get_client()
     tools = get_definitions()
 
