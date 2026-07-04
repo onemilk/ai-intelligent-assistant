@@ -99,18 +99,27 @@ def save_conversation(conv_id: str, messages: list[dict], title: Optional[str] =
     # 删除该会话的旧消息
     cursor.execute("DELETE FROM messages WHERE conversation_id = ?", (conv_id,))
 
-    # 写入所有消息
+    # 写入消息（只保存用户消息和 AI 纯文字回复，跳过工具调用中间过程）
     for msg in messages:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+
         # 跳过 system 消息（每次启动会重新设置）
-        if msg.get("role") == "system":
+        if role == "system":
             continue
+        # 跳过 tool 消息和只有 tool_calls 没有 content 的 assistant 消息
+        if role == "tool":
+            continue
+        if role == "assistant" and not content:
+            continue  # assistant 只有 tool_calls 没有文字，恢复时会出错
+
         cursor.execute("""
             INSERT INTO messages (conversation_id, role, content, tool_call_id, timestamp)
             VALUES (?, ?, ?, ?, ?)
         """, (
             conv_id,
-            msg.get("role", "user"),
-            msg.get("content", ""),
+            role,
+            content,
             msg.get("tool_call_id"),
             now
         ))
