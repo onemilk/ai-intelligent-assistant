@@ -1,7 +1,9 @@
 """工具层单元测试 —— 测试每个工具函数的输入输出"""
+
 import json
-from tools.time_tool import execute as get_current_time
+
 from tools.search_tool import execute as search_web
+from tools.time_tool import execute as get_current_time
 
 
 class TestTimeTool:

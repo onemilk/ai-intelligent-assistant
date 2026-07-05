@@ -2,18 +2,20 @@
 动画状态机 v3 —— 基于精灵图逐帧动画。
 从 spritesheet 提取的帧序列循环播放，每个状态有多帧画面。
 """
-import random
+
 import math
-from PySide6.QtCore import QTimer, QObject, Signal, Qt
-from PySide6.QtGui import QPixmap, QTransform, QPainter, QColor, QFont
+import random
 from enum import Enum, auto
+
+from PySide6.QtCore import QObject, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QFont, QPainter, QPixmap, QTransform
 
 
 class PetState(Enum):
-    IDLE = auto()       # 待机 → spritesheet "idle"
-    THINKING = auto()   # 思考中 → "waiting"（电子幽灵待机）
-    TALKING = auto()    # 说话中 → "waving"（招呼）
-    SLEEPING = auto()   # 休眠 → "idle" + ZZZ 覆盖
+    IDLE = auto()  # 待机 → spritesheet "idle"
+    THINKING = auto()  # 思考中 → "waiting"（电子幽灵待机）
+    TALKING = auto()  # 说话中 → "waving"（招呼）
+    SLEEPING = auto()  # 休眠 → "idle" + ZZZ 覆盖
 
 
 # 状态 → 精灵图状态名映射
@@ -34,8 +36,8 @@ class Animator(QObject):
         super().__init__(parent)
         self._base_pixmap = base_pixmap
         self._state = PetState.IDLE
-        self._frame = 0          # 全局帧计数
-        self._sprite_frame = 0   # 精灵帧索引
+        self._frame = 0  # 全局帧计数
+        self._sprite_frame = 0  # 精灵帧索引
         self._sprite_frames: list[QPixmap] = []  # 当前状态的帧列表
         self._fallback_pixmap = base_pixmap  # 没有精灵帧时的回退图片
 

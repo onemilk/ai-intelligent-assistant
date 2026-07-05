@@ -1,5 +1,5 @@
 """配置管理器测试"""
-import pytest
+
 from engine import config
 
 

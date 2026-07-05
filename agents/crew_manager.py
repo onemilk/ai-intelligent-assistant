@@ -3,9 +3,10 @@ Crew 编排器 —— 把研究员、写手、审核员三个 Agent 串成一个
 输入：用户的调研主题
 输出：经过审核的完整报告
 """
-import os
-from crewai import Task, Crew, Process
-from agents.roles import create_researcher, create_writer, create_reviewer
+
+from crewai import Crew, Process, Task
+
+from agents.roles import create_researcher, create_reviewer, create_writer
 
 
 def run_research_crew(topic: str) -> str:
@@ -81,4 +82,4 @@ def run_research_crew(topic: str) -> str:
     result = crew.kickoff()
 
     # crew.kickoff() 返回的是 CrewOutput 对象，取其 raw 属性得到字符串
-    return str(result.raw) if hasattr(result, 'raw') else str(result)
+    return str(result.raw) if hasattr(result, "raw") else str(result)

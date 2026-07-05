@@ -4,17 +4,23 @@
     1. 创建 tools/xxx_tool.py，定义 TOOL_DEFINITION 和 execute() 函数
     2. 在这里注册
 """
-from tools.time_tool import TOOL_DEFINITION as TIME_DEF, execute as exec_time
-from tools.search_tool import TOOL_DEFINITION as SEARCH_DEF, execute as exec_search
+
+from tools.auto_tool import TOOL_DEFINITION as AUTO_DEF
+from tools.auto_tool import execute as exec_auto
+from tools.crew_tool import TOOL_DEFINITION as CREW_DEF
+from tools.crew_tool import execute as exec_crew
 from tools.doc_tool import (
     LOAD_DOC_TOOL_DEFINITION,
     SEARCH_DOCS_TOOL_DEFINITION,
     execute_load_document,
     execute_search_documents,
 )
-from tools.crew_tool import TOOL_DEFINITION as CREW_DEF, execute as exec_crew
-from tools.auto_tool import TOOL_DEFINITION as AUTO_DEF, execute as exec_auto
-from tools.vision_tool import TOOL_DEFINITION as VISION_DEF, execute as exec_vision
+from tools.search_tool import TOOL_DEFINITION as SEARCH_DEF
+from tools.search_tool import execute as exec_search
+from tools.time_tool import TOOL_DEFINITION as TIME_DEF
+from tools.time_tool import execute as exec_time
+from tools.vision_tool import TOOL_DEFINITION as VISION_DEF
+from tools.vision_tool import execute as exec_vision
 
 # ---- 工具定义列表（发给 AI 的"菜单"）----
 ALL_TOOL_DEFINITIONS = [
@@ -59,3 +65,4 @@ def execute_tool(tool_name: str, tool_args: dict) -> str:
 def get_definitions() -> list[dict]:
     """返回所有工具的 Schema 定义列表（AI 侧使用）"""
     return ALL_TOOL_DEFINITIONS
+# ruff: noqa: F401

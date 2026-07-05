@@ -2,6 +2,7 @@
 统一日志系统 —— 替代项目中散落的 print() 调用。
 输出到控制台 + 文件（logs/app.log），自动按天轮转。
 """
+
 import logging
 import os
 import sys
@@ -40,17 +41,15 @@ def setup_logging(name: str = "ai-assistant", level: int = logging.INFO) -> logg
 
     # 文件输出（logs/app.log，自动追加）
     try:
-        log_dir = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "logs"
-        )
+        log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
         os.makedirs(log_dir, exist_ok=True)
         # RotatingFileHandler：单个日志文件最大 5MB，保留最近 3 个
         from logging.handlers import RotatingFileHandler
+
         file_handler = RotatingFileHandler(
             os.path.join(log_dir, "app.log"),
             maxBytes=5 * 1024 * 1024,  # 5 MB
-            backupCount=3,              # 保留 app.log.1 / app.log.2 / app.log.3
+            backupCount=3,  # 保留 app.log.1 / app.log.2 / app.log.3
             encoding="utf-8",
         )
         file_handler.setLevel(logging.DEBUG)  # 文件记录更详细

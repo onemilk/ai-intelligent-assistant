@@ -1,4 +1,5 @@
 """图片分析工具——上传图片，AI 看图回答"""
+
 from engine.vision import analyze_image
 
 TOOL_DEFINITION = {
@@ -12,18 +13,15 @@ TOOL_DEFINITION = {
         "parameters": {
             "type": "object",
             "properties": {
-                "image_path": {
-                    "type": "string",
-                    "description": "图片文件的完整路径"
-                },
+                "image_path": {"type": "string", "description": "图片文件的完整路径"},
                 "question": {
                     "type": "string",
-                    "description": "关于这张图片的问题，如'这张图里有什么？'、'分析图中的数据趋势'"
-                }
+                    "description": "关于这张图片的问题，如'这张图里有什么？'、'分析图中的数据趋势'",
+                },
             },
-            "required": ["image_path", "question"]
-        }
-    }
+            "required": ["image_path", "question"],
+        },
+    },
 }
 
 

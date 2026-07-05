@@ -3,34 +3,36 @@
 支持 Codex 格式精灵图：8 列 × 9 行，每格 192×208。
 内置 Aemeath Mini（爱弥斯 Q 版像素小人）作为默认角色。
 """
-from PySide6.QtWidgets import QLabel
-from PySide6.QtGui import QPixmap, QImage
-from PySide6.QtCore import Qt
-from PIL import Image
+
 import io
 import os
+
+from PIL import Image
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QLabel
 
 # ============================================================
 # 精灵图加载器 —— 从大图切片成单帧
 # ============================================================
 
 # 精灵图格式（Codex 标准）
-SPRITESHEET_COLS = 8   # 8 列
-SPRITESHEET_ROWS = 9   # 9 行
-CELL_WIDTH = 192       # 每格宽度
-CELL_HEIGHT = 208      # 每格高度
+SPRITESHEET_COLS = 8  # 8 列
+SPRITESHEET_ROWS = 9  # 9 行
+CELL_WIDTH = 192  # 每格宽度
+CELL_HEIGHT = 208  # 每格高度
 
 # 行号 → 动画状态名（从 README 确认的顺序）
 ROW_STATES = [
-    "idle",           # 第 1 行：待机
+    "idle",  # 第 1 行：待机
     "running-right",  # 第 2 行：右移
-    "running-left",   # 第 3 行：左移
-    "waving",         # 第 4 行：招呼
-    "jumping",        # 第 5 行：跳跃
-    "failed",         # 第 6 行：异常/困惑
-    "waiting",        # 第 7 行：屏幕待机（电子幽灵）
-    "running",        # 第 8 行：执行任务
-    "review",         # 第 9 行：完成反馈
+    "running-left",  # 第 3 行：左移
+    "waving",  # 第 4 行：招呼
+    "jumping",  # 第 5 行：跳跃
+    "failed",  # 第 6 行：异常/困惑
+    "waiting",  # 第 7 行：屏幕待机（电子幽灵）
+    "running",  # 第 8 行：执行任务
+    "review",  # 第 9 行：完成反馈
 ]
 
 
@@ -98,6 +100,7 @@ def _is_empty_cell(cell: Image.Image, threshold: float = 0.02) -> bool:
 # 图片像素化（用户自选图片时使用）
 # ============================================================
 
+
 def pixelate_image(image_path: str, pixel_size: int = 32, output_size: int = 128) -> QPixmap:
     """把任意图片处理成像素画风（保留作为自定义图片功能）"""
     img = Image.open(image_path).convert("RGBA")
@@ -128,8 +131,7 @@ def pixelate_image(image_path: str, pixel_size: int = 32, output_size: int = 128
 
 # 精灵图默认路径（相对于项目根目录）
 DEFAULT_SPRITESHEET = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "assets", "spritesheet.png"
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "spritesheet.png"
 )
 
 
@@ -170,8 +172,7 @@ class PetWidget(QLabel):
 
         if self._base_pixmap:
             scaled = self._base_pixmap.scaled(
-                self.display_size, self.display_size,
-                Qt.KeepAspectRatio, Qt.SmoothTransformation
+                self.display_size, self.display_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
             )
             self.setPixmap(scaled)
             self.setFixedSize(self.display_size, self.display_size)
@@ -180,20 +181,21 @@ class PetWidget(QLabel):
         """加载用户自选图片（像素化）"""
         self._frames = {}  # 清除精灵帧
         self._base_pixmap = pixelate_image(image_path, output_size=self.display_size)
-        self.setPixmap(self._base_pixmap.scaled(
-            self.display_size, self.display_size,
-            Qt.KeepAspectRatio, Qt.SmoothTransformation
-        ))
+        self.setPixmap(
+            self._base_pixmap.scaled(
+                self.display_size, self.display_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+        )
         self.setFixedSize(self.display_size, self.display_size)
 
     def _create_fallback_pet(self):
         """精灵图不可用时的兜底：生成简单像素猫"""
-        from ui.pet_widget import generate_pixel_pet
         # 动态导入，避免循环引用
         pass  # 使用旧的 generate_pixel_pet 做兜底
         # 简单方案：创建一个彩色方块
         img = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
         from PIL import ImageDraw
+
         draw = ImageDraw.Draw(img)
         draw.ellipse([10, 10, 118, 118], fill=(255, 200, 100, 255))
         draw.ellipse([35, 40, 55, 60], fill=(0, 0, 0, 255))

@@ -3,16 +3,18 @@ RAG（检索增强生成）模块 —— 阶段二核心
 负责文档的加载、切分、向量化存储和检索。
 让 AI 不仅能搜索互联网，还能"读懂"你本地的 PDF 和 Word 文档。
 """
-import os
-from PyPDF2 import PdfReader           # PDF 文件读取
-from docx import Document               # Word (.docx) 文件读取
-import chromadb                         # 向量数据库
-from chromadb.utils import embedding_functions  # 嵌入函数（把文字变成向量）
 
+import os
+
+import chromadb  # 向量数据库
+from chromadb.utils import embedding_functions  # 嵌入函数（把文字变成向量）
+from docx import Document  # Word (.docx) 文件读取
+from PyPDF2 import PdfReader  # PDF 文件读取
 
 # ============================================================
 # 第一部分：文档加载 —— 从文件里提取文字
 # ============================================================
+
 
 def load_pdf(file_path):
     """
@@ -61,6 +63,7 @@ def load_document(file_path):
 # ============================================================
 # 第二部分：文本切分 —— 把长文档切成小段
 # ============================================================
+
 
 def split_text(text, chunk_size=500, overlap=50):
     """
@@ -162,7 +165,7 @@ def index_document(file_path):
     collection.add(
         documents=chunks,
         ids=ids,
-        metadatas=[{"source": doc_name, "chunk_index": i} for i in range(len(chunks))]
+        metadatas=[{"source": doc_name, "chunk_index": i} for i in range(len(chunks))],
     )
 
     return doc_name, len(chunks)
@@ -197,16 +200,18 @@ def search_documents(query, top_k=3):
         return "文档库中没有找到相关内容。"
 
     output_parts = []
-    for i, (doc, metadata, distance) in enumerate(zip(
-        results["documents"][0],
-        results["metadatas"][0],
-        results["distances"][0],
-    )):
+    for i, (doc, metadata, distance) in enumerate(
+        zip(
+            results["documents"][0],
+            results["metadatas"][0],
+            results["distances"][0],
+        )
+    ):
         # distance 越小表示越相似（ChromaDB 默认用余弦距离）
         relevance = max(0, 1 - distance)  # 把距离转换为 0-1 的相似度分数
         source = metadata.get("source", "未知文档")
         output_parts.append(
-            f"--- 片段 {i+1}（来源：{source}，相关度：{relevance:.0%}）---\n{doc[:500]}"
+            f"--- 片段 {i + 1}（来源：{source}，相关度：{relevance:.0%}）---\n{doc[:500]}"
         )
 
     return "\n\n".join(output_parts)

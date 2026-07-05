@@ -2,26 +2,26 @@
 桌宠主窗口 v2 —— Mini Mode + 边缘吸附 + 睡眠 + 眼球追踪 + AI 对话。
 对标 Codex Pet / Clawd on Desk 的效果。
 """
+
+import json
+import os
+import random
 import sys
 import threading
-import random
-import math
-from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QSystemTrayIcon
-from PySide6.QtCore import Qt, QPoint, QTimer, Signal
-from PySide6.QtGui import QAction, QCursor, QIcon, QPixmap
+from datetime import datetime
 
-from ui.pet_widget import PetWidget
+from PySide6.QtCore import QPoint, Qt, QTimer, Signal
+from PySide6.QtGui import QAction, QCursor, QIcon, QPixmap
+from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QSystemTrayIcon
+
+from engine import config, memory, storage
+from engine.client import get_client
+from engine.logging_setup import log
+from tools import execute_tool, get_definitions
 from ui.animator import Animator, PetState
 from ui.bubble import SpeechBubble
 from ui.input_popup import InputPopup
-
-from engine.client import get_client
-from engine import storage, config, memory
-from engine.logging_setup import log
-from tools import get_definitions, execute_tool
-import json
-import os
-from datetime import datetime
+from ui.pet_widget import PetWidget
 
 
 class DeskPet(QMainWindow):
@@ -34,9 +34,7 @@ class DeskPet(QMainWindow):
 
         # ---- 窗口设置 ----
         self.setWindowTitle("AI 桌宠助手")
-        self.setWindowFlags(
-            Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
-        )
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setFixedSize(150, 150)
 
@@ -52,12 +50,12 @@ class DeskPet(QMainWindow):
         self._set_pet_state(PetState.IDLE)
 
         # ---- Mini Mode ----
-        self._mini_mode = False          # 是否处于隐藏状态
-        self._mini_offset = 0            # 隐藏偏移（0=完全显示，负值=滑出屏幕）
+        self._mini_mode = False  # 是否处于隐藏状态
+        self._mini_offset = 0  # 隐藏偏移（0=完全显示，负值=滑出屏幕）
         self._mini_timer = QTimer(self)  # Mini Mode 动画定时器
         self._mini_timer.timeout.connect(self._mini_animate)
-        self._edge_margin = 30           # 距离边缘多少像素触发吸附
-        self._mini_tab_size = 8          # Mini 模式下露出的标签宽度
+        self._edge_margin = 30  # 距离边缘多少像素触发吸附
+        self._mini_tab_size = 8  # Mini 模式下露出的标签宽度
 
         # ---- 拖拽状态 ----
         self._dragging = False
@@ -126,8 +124,9 @@ class DeskPet(QMainWindow):
         self._tts_enabled = config.get("ui.tts_enabled")
         try:
             import pyttsx3
+
             self._tts_engine = pyttsx3.init()
-            self._tts_engine.setProperty('rate', 180)
+            self._tts_engine.setProperty("rate", 180)
         except Exception:
             self._tts_enabled = False
             self._tts_engine = None
@@ -153,9 +152,9 @@ class DeskPet(QMainWindow):
         if self._mini_mode and self._mini_offset <= -self.pet_size + self._mini_tab_size:
             return
 
-        self.pet_widget.setPixmap(pixmap.scaled(
-            self.pet_size, self.pet_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
-        ))
+        self.pet_widget.setPixmap(
+            pixmap.scaled(self.pet_size, self.pet_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        )
 
     def _update_eyes(self):
         """眼球跟随鼠标（简单实现：移动宠物的视线方向）"""
@@ -191,8 +190,10 @@ class DeskPet(QMainWindow):
             self._tray.setIcon(QIcon(icon_pixmap))
         else:
             # 创建一个简单的猫脸 emoji 作为托盘图标
-            from PIL import Image, ImageDraw
             import io
+
+            from PIL import Image, ImageDraw
+
             img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
             draw = ImageDraw.Draw(img)
             draw.ellipse([4, 4, 60, 60], fill=(255, 180, 80, 255))
@@ -346,9 +347,10 @@ class DeskPet(QMainWindow):
         # 根据边缘方向移动窗口
         if self._mini_edge == "right":
             self.move(
-                self.frameGeometry().left() + step if self._mini_offset < self._mini_target
+                self.frameGeometry().left() + step
+                if self._mini_offset < self._mini_target
                 else self.frameGeometry().left() - step,
-                self.frameGeometry().top()
+                self.frameGeometry().top(),
             )
         # ... 暂只支持右边缘
 
@@ -384,9 +386,9 @@ class DeskPet(QMainWindow):
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
             self._dragging = False
-            total_move = (event.globalPosition().toPoint() - (
-                self._drag_start_pos + self._drag_offset
-            )).manhattanLength()
+            total_move = (
+                event.globalPosition().toPoint() - (self._drag_start_pos + self._drag_offset)
+            ).manhattanLength()
 
             if total_move < 10:
                 # 短距离 = 点击
@@ -427,6 +429,7 @@ class DeskPet(QMainWindow):
                 self.ai_reply_ready.emit(ai_reply)
             except Exception as e:
                 import traceback
+
                 log.error(f"AI调用异常：{e}")
                 traceback.print_exc()
                 self.ai_reply_ready.emit(f"出错啦：{e}")
@@ -446,18 +449,19 @@ class DeskPet(QMainWindow):
                     tool_name = tc.function.name
                     tool_args = json.loads(tc.function.arguments)
                     result = execute_tool(tool_name, tool_args)
-                    self._messages.append({
-                        "role": "tool", "tool_call_id": tc.id, "content": result
-                    })
+                    self._messages.append(
+                        {"role": "tool", "tool_call_id": tc.id, "content": result}
+                    )
                 continue
 
             reply = choice.message.content or ""
             self._messages.append({"role": "assistant", "content": reply})
             return reply, []
 
-        response = self._client.chat(messages=self._messages + [{
-            "role": "user", "content": "请直接给出最终回答，不要再调用工具。"
-        }])
+        response = self._client.chat(
+            messages=self._messages
+            + [{"role": "user", "content": "请直接给出最终回答，不要再调用工具。"}]
+        )
         reply = response.choices[0].message.content or ""
         self._messages.append({"role": "assistant", "content": reply})
         return reply, []
@@ -472,7 +476,7 @@ class DeskPet(QMainWindow):
                 "AI 桌宠助手",
                 text[:100] + ("..." if len(text) > 100 else ""),
                 QSystemTrayIcon.Information,
-                3000  # 3 秒后自动消失
+                3000,  # 3 秒后自动消失
             )
 
         # 运行时保护
@@ -514,6 +518,7 @@ class DeskPet(QMainWindow):
 
         # TTS 后台播放
         if self._tts_enabled and self._tts_engine:
+
             def speak():
                 try:
                     clean = text.replace("*", "").replace("#", "").replace("`", "")[:100]
@@ -521,6 +526,7 @@ class DeskPet(QMainWindow):
                     self._tts_engine.runAndWait()
                 except Exception:
                     pass
+
             threading.Thread(target=speak, daemon=True).start()
 
         QTimer.singleShot(3000, lambda: self._set_pet_state(PetState.IDLE))
@@ -564,7 +570,12 @@ class DeskPet(QMainWindow):
         skin_menu = QMenu("🎨  换肤", self)
         skin_menu.setStyleSheet("QMenu { font-family: 'Microsoft YaHei'; font-size: 12px; }")
         for name in ["orange_cat", "black_cat", "calico", "slime"]:
-            label_map = {"orange_cat": "🐱 橘猫", "black_cat": "🐈‍⬛ 黑猫", "calico": "🐱 三花", "slime": "💧 史莱姆"}
+            label_map = {
+                "orange_cat": "🐱 橘猫",
+                "black_cat": "🐈‍⬛ 黑猫",
+                "calico": "🐱 三花",
+                "slime": "💧 史莱姆",
+            }
             action = QAction(label_map.get(name, name), self)
             action.triggered.connect(lambda checked, n=name: self._switch_skin(n))
             skin_menu.addAction(action)
@@ -588,13 +599,14 @@ class DeskPet(QMainWindow):
 
     def _open_chat_panel(self):
         import subprocess
-        import os
+
         script_path = os.path.join(os.path.dirname(__file__), "..", "launch_chat.py")
         if os.path.exists(script_path):
             subprocess.Popen([sys.executable, script_path])
 
     def _upload_document(self):
         from PySide6.QtWidgets import QFileDialog
+
         file_path, _ = QFileDialog.getOpenFileName(
             self, "选择文档", "", "文档文件 (*.pdf *.docx *.doc)"
         )
@@ -607,6 +619,7 @@ class DeskPet(QMainWindow):
     def _switch_skin(self, palette_name: str):
         """切换到内置像素精灵皮肤"""
         from ui.pet_widget import generate_all_frames
+
         self.pet_widget._frames = generate_all_frames(palette_name)
         self.pet_widget._base_pixmap = None
         # 获取 idle 帧更新显示
@@ -620,6 +633,7 @@ class DeskPet(QMainWindow):
 
     def _change_costume(self):
         from PySide6.QtWidgets import QFileDialog
+
         file_path, _ = QFileDialog.getOpenFileName(
             self, "选择角色图片", "", "图片文件 (*.png *.jpg *.jpeg *.bmp *.gif)"
         )
@@ -639,7 +653,7 @@ class DeskPet(QMainWindow):
         for f in facts[:5]:
             summary += f"  • {f['key']}：{f['value']}\n"
         if len(facts) > 5:
-            summary += f"  ... 还有 {len(facts)-5} 条"
+            summary += f"  ... 还有 {len(facts) - 5} 条"
         self._show_reply(summary)
         print(f"\n🧠 用户画像（{len(facts)} 条）：")
         for f in facts:
@@ -664,6 +678,7 @@ class DeskPet(QMainWindow):
     def _open_settings(self):
         """打开设置对话框"""
         from ui.settings_dialog import SettingsDialog
+
         dialog = SettingsDialog(self)
         if dialog.exec():  # 用户点击了保存
             # 重新加载配置

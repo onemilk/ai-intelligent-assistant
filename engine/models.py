@@ -4,9 +4,10 @@
 
 和实训项目的 7 个 dataclass 一样，这里定义了 AI 助手的核心数据契约。
 """
+
 from dataclasses import dataclass, field
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
 
 @dataclass
@@ -22,8 +23,9 @@ class ChatMessage:
         timestamp: 消息产生的时间（用于对话历史排序和显示）
         tool_call_id: 当 role="tool" 时，关联的工具调用 ID
     """
-    role: str                        # 角色：system / user / assistant / tool
-    content: str                     # 消息文本内容
+
+    role: str  # 角色：system / user / assistant / tool
+    content: str  # 消息文本内容
     timestamp: datetime = field(default_factory=datetime.now)
     tool_call_id: Optional[str] = None  # 工具调用 ID（仅 tool 消息需要）
 
@@ -44,9 +46,10 @@ class ToolCall:
     一次工具调用记录。
     当 AI 决定调用工具时，记录它调了哪个工具、传了什么参数、返回了什么结果。
     """
-    tool_name: str       # 工具名称，如 "search_web"
-    arguments: dict      # 调用参数，如 {"query": "Python 教程"}
-    result: str          # 工具返回的结果
+
+    tool_name: str  # 工具名称，如 "search_web"
+    arguments: dict  # 调用参数，如 {"query": "Python 教程"}
+    result: str  # 工具返回的结果
 
 
 @dataclass
@@ -57,15 +60,16 @@ class Conversation:
 
     这是对话管理器的核心数据对象——把"一堆 dict"变成"一个有结构的对象"。
     """
-    id: str                                    # 会话唯一标识
-    title: str = "新对话"                       # 会话标题（显示用）
+
+    id: str  # 会话唯一标识
+    title: str = "新对话"  # 会话标题（显示用）
     messages: list = field(default_factory=list)  # 消息列表
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
     def to_api_messages(self) -> list[dict]:
         """将对话历史转为 API 调用所需的 messages 格式"""
-        return [msg.to_api_format() for msg in self.messages if hasattr(msg, 'to_api_format')]
+        return [msg.to_api_format() for msg in self.messages if hasattr(msg, "to_api_format")]
 
     def add_user_message(self, content: str):
         """添加用户消息"""
@@ -79,7 +83,5 @@ class Conversation:
 
     def add_tool_message(self, content: str, tool_call_id: str):
         """添加工具执行结果"""
-        self.messages.append(
-            ChatMessage(role="tool", content=content, tool_call_id=tool_call_id)
-        )
+        self.messages.append(ChatMessage(role="tool", content=content, tool_call_id=tool_call_id))
         self.updated_at = datetime.now()

@@ -1,7 +1,9 @@
 """向量存储 —— ChromaDB 管理：入库、检索、清空"""
+
+from typing import List
+
 import chromadb
 from chromadb.utils import embedding_functions
-from typing import List
 
 # ChromaDB 嵌入模型（all-MiniLM-L6-v2，轻量、离线、免费）
 _embedding_fn = embedding_functions.DefaultEmbeddingFunction()
@@ -67,15 +69,17 @@ def search_documents(query: str, top_k: int = 3) -> str:
         return "文档库中没有找到相关内容。"
 
     output_parts = []
-    for i, (doc, meta, dist) in enumerate(zip(
-        results["documents"][0],
-        results["metadatas"][0],
-        results["distances"][0],
-    )):
+    for i, (doc, meta, dist) in enumerate(
+        zip(
+            results["documents"][0],
+            results["metadatas"][0],
+            results["distances"][0],
+        )
+    ):
         relevance = max(0, 1 - dist)
         source = meta.get("source", "未知文档")
         output_parts.append(
-            f"--- 片段 {i+1}（来源：{source}，相关度：{relevance:.0%}）---\n{doc[:500]}"
+            f"--- 片段 {i + 1}（来源：{source}，相关度：{relevance:.0%}）---\n{doc[:500]}"
         )
 
     return "\n\n".join(output_parts)

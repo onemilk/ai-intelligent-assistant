@@ -1,8 +1,12 @@
 """长期记忆测试 —— 记住/回忆/忘记/画像提取"""
-import pytest
+
 from engine.memory import (
-    init_memory_db, remember, recall, forget,
-    get_context_string, auto_extract_facts
+    auto_extract_facts,
+    forget,
+    get_context_string,
+    init_memory_db,
+    recall,
+    remember,
 )
 
 

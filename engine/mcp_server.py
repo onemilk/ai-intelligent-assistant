@@ -5,15 +5,15 @@ MCP Server —— 将项目的 7 个工具以 MCP 协议标准暴露出去。
 MCP 协议基于 JSON-RPC over stdio：
     客户端通过 stdin 发 JSON 请求 → 服务端处理后通过 stdout 返回 JSON 响应
 """
-import sys
+
 import json
 import os
+import sys
 
 # 确保从项目根目录加载
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tools import execute_tool
-
 
 # ---- 工具 Schema 定义（MCP 格式）----
 # MCP 的 tool 定义格式和 OpenAI Function Calling 相似，但有几个关键区别
@@ -32,9 +32,7 @@ MCP_TOOLS = [
         "description": "在互联网上搜索信息",
         "inputSchema": {
             "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "搜索关键词"}
-            },
+            "properties": {"query": {"type": "string", "description": "搜索关键词"}},
             "required": ["query"],
         },
     },
@@ -43,9 +41,7 @@ MCP_TOOLS = [
         "description": "加载本地 PDF/Word/Markdown/TXT 文档到知识库",
         "inputSchema": {
             "type": "object",
-            "properties": {
-                "file_path": {"type": "string", "description": "文档文件路径"}
-            },
+            "properties": {"file_path": {"type": "string", "description": "文档文件路径"}},
             "required": ["file_path"],
         },
     },
@@ -54,9 +50,7 @@ MCP_TOOLS = [
         "description": "在已加载的本地文档中搜索相关内容",
         "inputSchema": {
             "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "搜索关键词或问题"}
-            },
+            "properties": {"query": {"type": "string", "description": "搜索关键词或问题"}},
             "required": ["query"],
         },
     },
@@ -65,9 +59,7 @@ MCP_TOOLS = [
         "description": "启动研究员+写手+审核员三个 AI Agent 协作完成深度调研",
         "inputSchema": {
             "type": "object",
-            "properties": {
-                "topic": {"type": "string", "description": "调研主题"}
-            },
+            "properties": {"topic": {"type": "string", "description": "调研主题"}},
             "required": ["topic"],
         },
     },
@@ -76,9 +68,7 @@ MCP_TOOLS = [
         "description": "启动自主工作模式，AI 自动规划→搜索→反思→修正→输出",
         "inputSchema": {
             "type": "object",
-            "properties": {
-                "goal": {"type": "string", "description": "需要完成的完整目标"}
-            },
+            "properties": {"goal": {"type": "string", "description": "需要完成的完整目标"}},
             "required": ["goal"],
         },
     },

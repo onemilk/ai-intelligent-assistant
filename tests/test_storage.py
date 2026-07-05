@@ -1,8 +1,11 @@
 """对话存储层测试 —— 覆盖 CRUD 全部操作"""
-import pytest
+
 from engine.storage import (
-    init_db, save_conversation, load_conversation,
-    load_last_conversation, list_conversations, delete_conversation
+    delete_conversation,
+    init_db,
+    list_conversations,
+    load_conversation,
+    save_conversation,
 )
 
 

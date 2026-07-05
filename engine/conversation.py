@@ -2,9 +2,10 @@
 对话管理器 —— 负责维护对话历史、处理工具调用循环、调度 AI 回复。
 这是从 main.py 抽离出来的核心逻辑，不再耦合在 UI 层。
 """
+
 import json
+
 from engine.client import get_client
-from engine.models import ChatMessage
 
 
 class ConversationManager:
@@ -44,14 +45,11 @@ class ConversationManager:
 
     def add_tool_result(self, tool_call_id: str, result: str):
         """添加工具执行结果到对话历史"""
-        self.messages.append({
-            "role": "tool",
-            "tool_call_id": tool_call_id,
-            "content": result
-        })
+        self.messages.append({"role": "tool", "tool_call_id": tool_call_id, "content": result})
 
-    def get_response(self, tools: list[dict] | None = None,
-                     max_tool_rounds: int = 3) -> tuple[str, list]:
+    def get_response(
+        self, tools: list[dict] | None = None, max_tool_rounds: int = 3
+    ) -> tuple[str, list]:
         """
         获取 AI 的回复，自动处理工具调用循环。
 
@@ -95,10 +93,12 @@ class ConversationManager:
             return ai_reply, all_tool_calls
 
         # 工具调用次数用尽——强制要求 AI 给出最终回复
-        self.messages.append({
-            "role": "user",
-            "content": "请基于已有的搜索结果，直接给出最终回答，不要再调用工具了。"
-        })
+        self.messages.append(
+            {
+                "role": "user",
+                "content": "请基于已有的搜索结果，直接给出最终回答，不要再调用工具了。",
+            }
+        )
         response = self.client.chat(messages=self.messages)  # 不传 tools，禁止再调工具
         ai_reply = response.choices[0].message.content or ""
         self.messages.append({"role": "assistant", "content": ai_reply})
@@ -117,7 +117,7 @@ class ConversationManager:
                 "id": tc.id,
                 "name": tc.function.name,
                 "args": json.loads(tc.function.arguments),
-                "result": ""  # 先占位，外部代码填充
+                "result": "",  # 先占位，外部代码填充
             }
             tool_calls.append(info)
         return tool_calls

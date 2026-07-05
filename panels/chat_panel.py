@@ -2,19 +2,21 @@
 Streamlit 聊天面板 —— AI 智能助手的完整网页对话界面。
 支持：打字机流式输出 / Function Calling / 文档上传问答 / 多 Agent 调研报告
 """
-import streamlit as st
-import sys
-import os
+
 import json
+import os
+import sys
 import time
 from datetime import datetime
 
+import streamlit as st
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from engine.client import get_client
-from engine import storage, memory
-from tools import get_definitions, execute_tool
 from agents.crew_manager import run_research_crew
+from engine import memory, storage
+from engine.client import get_client
+from tools import execute_tool, get_definitions
 
 st.set_page_config(page_title="AI 智能助手", page_icon="🐱", layout="wide")
 
@@ -59,9 +61,9 @@ def call_ai(messages, client, tools_defs, placeholder=None):
         return reply
 
     # 兜底
-    response = client.chat(messages=messages + [
-        {"role": "user", "content": "请直接给出最终回答，不要再调用工具了。"}
-    ])
+    response = client.chat(
+        messages=messages + [{"role": "user", "content": "请直接给出最终回答，不要再调用工具了。"}]
+    )
     reply = response.choices[0].message.content or ""
     messages.append({"role": "assistant", "content": reply})
     return reply
@@ -85,6 +87,7 @@ def get_system_prompt():
 # 侧边栏
 # ================================================================
 
+
 def render_sidebar():
     with st.sidebar:
         st.title("🐱 AI 智能助手")
@@ -97,9 +100,12 @@ def render_sidebar():
 
         conversations = storage.list_conversations()
         for conv in conversations[:10]:
-            if st.button(f"💬 {conv['title'][:20]}", key=conv["id"],
-                         use_container_width=True,
-                         help=f"更新：{conv['updated_at']}"):
+            if st.button(
+                f"💬 {conv['title'][:20]}",
+                key=conv["id"],
+                use_container_width=True,
+                help=f"更新：{conv['updated_at']}",
+            ):
                 st.session_state.conv_id = conv["id"]
                 history = storage.load_conversation(conv["id"])
                 st.session_state.messages = [
@@ -125,7 +131,7 @@ def render_sidebar():
         uploaded_image = st.file_uploader(
             "上传图片让 AI 分析",
             type=["png", "jpg", "jpeg", "gif", "webp", "bmp"],
-            key="image_upload"
+            key="image_upload",
         )
         if uploaded_image:
             tmp = os.path.join(os.path.dirname(__file__), "..", "temp_uploads")
@@ -134,20 +140,19 @@ def render_sidebar():
             with open(img_path, "wb") as f:
                 f.write(uploaded_image.getbuffer())
             st.image(uploaded_image, caption="已上传", width=300)
-            question = st.text_input("想问这张图片什么？", key="img_question",
-                                     placeholder="例如：这张图里有什么？")
+            question = st.text_input(
+                "想问这张图片什么？", key="img_question", placeholder="例如：这张图里有什么？"
+            )
             if question:
                 from engine.vision import analyze_image
+
                 with st.spinner("AI 正在看图..."):
                     result = analyze_image(img_path, question)
                 st.success(result)
-                st.session_state.messages.append({
-                    "role": "user",
-                    "content": f"[上传图片：{uploaded_image.name}] {question}"
-                })
                 st.session_state.messages.append(
-                    {"role": "assistant", "content": result}
+                    {"role": "user", "content": f"[上传图片：{uploaded_image.name}] {question}"}
                 )
+                st.session_state.messages.append({"role": "assistant", "content": result})
 
         st.divider()
         st.subheader("🤖 快速操作")
@@ -163,6 +168,7 @@ def render_sidebar():
 # ================================================================
 # 主聊天区
 # ================================================================
+
 
 def render_chat():
     st.title("🤖 AI 智能助手")
@@ -202,9 +208,11 @@ def render_chat():
 
         with st.chat_message("assistant"):
             placeholder = st.empty()  # 用于打字机效果的占位符
-            reply = call_ai(
-                st.session_state.messages, client, tools_defs,
-                placeholder=placeholder  # 传入 placeholder 启用打字机效果
+            call_ai(
+                st.session_state.messages,
+                client,
+                tools_defs,
+                placeholder=placeholder,  # 传入 placeholder 启用打字机效果
             )
 
         storage.save_conversation(st.session_state.conv_id, st.session_state.messages)

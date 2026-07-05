@@ -1,14 +1,16 @@
 """🚀 桌宠启动入口 —— 双击运行或命令行启动"""
-import sys
+
 import os
+import sys
 
 # 确保从项目根目录启动（解决相对路径问题）
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-from PySide6.QtWidgets import QApplication, QMessageBox
-from PySide6.QtGui import QIcon
-from PySide6.QtCore import QSharedMemory
-from ui.desk_pet import DeskPet
+from PySide6.QtCore import QSharedMemory  # noqa: E402
+from PySide6.QtGui import QIcon  # noqa: E402
+from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
+
+from ui.desk_pet import DeskPet  # noqa: E402
 
 
 def is_already_running() -> bool:

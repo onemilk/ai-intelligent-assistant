@@ -2,7 +2,9 @@
 LLM 客户端封装 —— 统一管理 DeepSeek（以及未来可能的其他模型）的 API 调用。
 把 OpenAI SDK 的初始化和调用细节封装在这里，上层代码不需要关心 base_url 和 api_key。
 """
+
 import os
+
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -72,7 +74,7 @@ class LLMClient:
         kwargs = {
             "model": self.model,
             "messages": messages,
-            "stream": True,           # 关键参数：开启流式
+            "stream": True,  # 关键参数：开启流式
             "stream_options": {"include_usage": True},  # 包含 token 用量
         }
         if tools:

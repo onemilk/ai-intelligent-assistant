@@ -8,8 +8,9 @@
 每次对话后，AI 自动从回复中提取关于用户的新事实，存入 SQLite。
 下次启动时，这些事实会自动注入系统提示词，让 AI 从第一天就了解你。
 """
-from engine.storage import get_connection
+
 from engine.logging_setup import log
+from engine.storage import get_connection
 
 
 def init_memory_db():
@@ -36,14 +37,17 @@ def init_memory_db():
 # 读写操作
 # ================================================================
 
+
 def remember(key: str, value: str, category: str = "general", confidence: float = 0.7):
     """记住一个事实（新增或更新）"""
     from datetime import datetime
+
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO user_memory (category, key, value, confidence, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(key) DO UPDATE SET
@@ -51,7 +55,9 @@ def remember(key: str, value: str, category: str = "general", confidence: float 
             category = excluded.category,
             confidence = excluded.confidence,
             updated_at = excluded.updated_at
-    """, (category, key, value, confidence, now, now))
+    """,
+        (category, key, value, confidence, now, now),
+    )
     conn.commit()
     conn.close()
 
@@ -62,18 +68,23 @@ def recall(key: str = None) -> list[dict]:
     cursor = conn.cursor()
     if key:
         cursor.execute(
-            "SELECT category, key, value, confidence FROM user_memory WHERE key = ?",
-            (key,)
+            "SELECT category, key, value, confidence FROM user_memory WHERE key = ?", (key,)
         )
     else:
         cursor.execute(
-            "SELECT category, key, value, confidence FROM user_memory "
-            "ORDER BY confidence DESC"
+            "SELECT category, key, value, confidence FROM user_memory ORDER BY confidence DESC"
         )
     rows = cursor.fetchall()
     conn.close()
-    return [{"category": r["category"], "key": r["key"],
-             "value": r["value"], "confidence": r["confidence"]} for r in rows]
+    return [
+        {
+            "category": r["category"],
+            "key": r["key"],
+            "value": r["value"],
+            "confidence": r["confidence"],
+        }
+        for r in rows
+    ]
 
 
 def forget(key: str):
@@ -123,6 +134,7 @@ def get_context_string() -> str:
 # 自动提取 —— 让 AI 自己找新事实
 # ================================================================
 
+
 def auto_extract_facts(user_message: str, ai_reply: str):
     """
     基于用户消息和 AI 回复，自动提取用户画像。
@@ -135,6 +147,7 @@ def auto_extract_facts(user_message: str, ai_reply: str):
         - "我在学/我在做 XXX" → 技术栈
     """
     import re
+
     text = user_message + " " + ai_reply
 
     patterns = {
@@ -150,7 +163,10 @@ def auto_extract_facts(user_message: str, ai_reply: str):
         ],
         "tech": [
             (r"我在学(.{1,30})", "正在学"),
-            (r"我(?:是|做)(前端|后端|全栈|AI|数据|算法|测试|运维|安全|嵌入式|游戏)(?:开发|方向|工程师)?", "技术方向"),
+            (
+                r"我(?:是|做)(前端|后端|全栈|AI|数据|算法|测试|运维|安全|嵌入式|游戏)(?:开发|方向|工程师)?",
+                "技术方向",
+            ),
             (r"我会(.{1,20})(?:编程|语言|开发)", "技能"),
             (r"我的项目(?:是|用)(.{1,30})", "项目经验"),
         ],

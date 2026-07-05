@@ -6,10 +6,12 @@ AI 智能信息助手 —— 终端版入口（保留用于调试和功能验证
     tools/     → 工具注册表 + 执行函数
     rag/       → 文档加载 + 切分 + 向量检索
 """
+
 import json
 from datetime import datetime
+
 from engine.conversation import ConversationManager
-from tools import get_definitions, execute_tool
+from tools import execute_tool, get_definitions
 
 
 def get_current_time() -> str:
@@ -72,6 +74,7 @@ def run_terminal_chat():
 # ---- 保留终端的完整工具处理逻辑（因为 ConversationManager 目前只做 API 调度）----
 # 下面的版本使用"老方式"完整处理，确保和之前的行为完全一致
 
+
 def run_terminal_chat_full():
     """
     终端版完整对话循环。
@@ -94,7 +97,7 @@ def run_terminal_chat_full():
                 "4. 帮助用户加载文档到知识库\n\n"
                 "重要规则：最多搜索 1-2 次，拿到结果后立刻基于结果给出回答。"
                 "搜索时使用当前年份 2026。回答时用中文，简洁友好。"
-            )
+            ),
         }
     ]
 
@@ -143,11 +146,7 @@ def run_terminal_chat_full():
                     display = result[:200] + "..." if len(result) > 200 else result
                     print(f"📋 [工具结果] {display}")
 
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tc.id,
-                        "content": result
-                    })
+                    messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
                 continue
 
             # 文字回复
@@ -157,10 +156,15 @@ def run_terminal_chat_full():
             break
         else:
             print("\n⚠️  工具调用次数用尽，强制要求 AI 给出回复...")
-            response = client.chat(messages=messages + [{
-                "role": "user",
-                "content": "请基于已有的搜索结果，直接给出最终回答，不要再调用工具了。"
-            }])
+            response = client.chat(
+                messages=messages
+                + [
+                    {
+                        "role": "user",
+                        "content": "请基于已有的搜索结果，直接给出最终回答，不要再调用工具了。",
+                    }
+                ]
+            )
             ai_reply = response.choices[0].message.content
             messages.append({"role": "assistant", "content": ai_reply})
             print(f"\n🤖 AI：{ai_reply}")

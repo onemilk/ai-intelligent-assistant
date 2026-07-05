@@ -1,7 +1,9 @@
 """文档加载器 —— 支持 PDF、Word、Markdown、TXT"""
+
 import os
-from PyPDF2 import PdfReader
+
 from docx import Document
+from PyPDF2 import PdfReader
 
 
 def load_pdf(file_path: str) -> str:

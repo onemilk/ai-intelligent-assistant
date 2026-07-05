@@ -1,12 +1,22 @@
 """
 设置对话框 —— 在桌宠右键菜单中打开，配置 API、模型、语音等参数。
 """
-from PySide6.QtWidgets import (
-    QDialog, QTabWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QLineEdit, QComboBox, QCheckBox, QSpinBox,
-    QPushButton, QFormLayout, QWidget
-)
+
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QSpinBox,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
+
 from engine import config
 
 
@@ -17,9 +27,7 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("⚙️ 设置")
         self.setMinimumWidth(400)
-        self.setWindowFlags(
-            Qt.Tool | Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint
-        )
+        self.setWindowFlags(Qt.Tool | Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
 
         # 主布局
@@ -78,6 +86,7 @@ class SettingsDialog(QDialog):
         current_key = config.get("api.api_key") or ""
         # 如果 key 来自环境变量，显示提示
         import os
+
         env_key = os.getenv("DEEPSEEK_API_KEY", "")
         if env_key and not current_key:
             self.api_key_input.setPlaceholderText(f"使用环境变量 ({env_key[:8]}...)")

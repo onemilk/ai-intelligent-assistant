@@ -2,9 +2,10 @@
 迷你输入框 —— 点击桌宠后弹出的小输入框。
 无边框、自动定位在宠物旁边、回车发送。
 """
-from PySide6.QtWidgets import QWidget, QLineEdit, QVBoxLayout
-from PySide6.QtCore import Qt, QPoint, Signal
+
+from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import QLineEdit, QWidget
 
 
 class InputPopup(QWidget):
@@ -16,9 +17,7 @@ class InputPopup(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         # 无边框 + 置顶 + 不抢夺焦点
-        self.setWindowFlags(
-            Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
-        )
+        self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WA_TranslucentBackground)
 
@@ -56,6 +55,7 @@ class InputPopup(QWidget):
     def eventFilter(self, obj, event):
         """当输入框失去焦点时自动关闭"""
         from PySide6.QtCore import QEvent
+
         if obj == self.input_field and event.type() == QEvent.FocusOut:
             self.hide()
         return super().eventFilter(obj, event)

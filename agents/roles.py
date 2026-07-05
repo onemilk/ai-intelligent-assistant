@@ -2,8 +2,10 @@
 角色定义 —— 研究员、写手、审核员三个 Agent 的人设、目标和工具配置。
 每个角色就像一个"员工"，有不同的专业分工。
 """
+
 import os
-from crewai import Agent, LLM
+
+from crewai import LLM, Agent
 
 # ---- LLM 配置 ----
 # 让 CrewAI 使用 DeepSeek API（通过 OpenAI 兼容接口）

@@ -2,9 +2,10 @@
 对话气泡 —— AI 回复时在桌宠旁边显示的小气泡。
 小巧克制：宽度不超过角色宽度，3 秒自动淡出。
 """
-from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout
-from PySide6.QtCore import Qt, QTimer, QPoint
-from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath
+
+from PySide6.QtCore import QPoint, Qt, QTimer
+from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath
+from PySide6.QtWidgets import QLabel, QWidget
 
 
 class SpeechBubble(QWidget):
@@ -13,9 +14,7 @@ class SpeechBubble(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         # 无边框 + 透明背景 + 置顶
-        self.setWindowFlags(
-            Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
-        )
+        self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
 

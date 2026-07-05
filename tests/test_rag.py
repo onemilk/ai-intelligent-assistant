@@ -1,7 +1,9 @@
 """RAG 模块单元测试 —— 测试文档加载、文本切分、向量检索"""
+
 import os
-from rag.loader import load_document
+
 from rag.chunker import split_text
+from rag.loader import load_document
 from rag.vector_store import index_document, search_documents
 
 
@@ -20,7 +22,7 @@ class TestChunker:
         text = "短文本"
         chunks = split_text(text, chunk_size=500, overlap=50)
         assert len(chunks) == 1, f"短文应保持为 1 段，实际：{len(chunks)} 段"
-        assert chunks[0] == text, f"短文内容不应改变"
+        assert chunks[0] == text, "短文内容不应改变"
 
     def test_overlap_between_chunks(self):
         """测试：相邻段落之间存在重叠"""
@@ -31,8 +33,9 @@ class TestChunker:
             first_end = chunks[0][-20:]  # 取第一段末尾 20 字符
             second_start = chunks[1][:200]  # 取第二段前 200 字符
             # 第一段末尾的内容应该出现在第二段中（由于重叠）
-            assert first_end[:10] in second_start, \
+            assert first_end[:10] in second_start, (
                 f"第一段末尾 '{first_end[:10]}' 应在第二段中出现（重叠失效）"
+            )
 
 
 class TestRAGPipeline:
@@ -62,8 +65,9 @@ class TestRAGPipeline:
         result = search_documents("机器学习", top_k=2)
         assert len(result) > 0, "搜索结果不应为空"
         # 搜索结果应包含文档内容
-        assert "机器学习" in result or "Machine" in result or "文档" in result, \
+        assert "机器学习" in result or "Machine" in result or "文档" in result, (
             f"搜索结果应与查询相关：{result[:100]}"
+        )
 
     def test_search_empty_db(self):
         """测试：在空数据库中搜索应返回提示"""

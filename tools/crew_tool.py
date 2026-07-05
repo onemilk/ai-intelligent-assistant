@@ -1,4 +1,5 @@
 """多 Agent 协作工具 —— 启动研究员+写手+审核员三人组完成调研报告"""
+
 from agents.crew_manager import run_research_crew
 
 # 工具描述 —— 告诉 AI 什么时候触发多 Agent 流程
@@ -16,12 +17,12 @@ TOOL_DEFINITION = {
             "properties": {
                 "topic": {
                     "type": "string",
-                    "description": "需要调研的主题，如 '2026年AI Agent发展趋势' 或 'Python在数据科学中的应用'"
+                    "description": "需要调研的主题，如 '2026年AI Agent发展趋势' 或 'Python在数据科学中的应用'",
                 }
             },
-            "required": ["topic"]
-        }
-    }
+            "required": ["topic"],
+        },
+    },
 }
 
 

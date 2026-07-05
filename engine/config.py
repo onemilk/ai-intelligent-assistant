@@ -2,14 +2,14 @@
 配置管理器 —— 统一管理所有用户设置。
 从 settings.json 读取，运行时写入，桌宠和聊天面板共享。
 """
+
 import json
 import os
 import threading
 
 # settings.json 路径（项目根目录）
 SETTINGS_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "settings.json"
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "settings.json"
 )
 
 # 默认配置

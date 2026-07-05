@@ -2,16 +2,15 @@
 对话持久化存储 —— 基于 SQLite 保存和恢复对话历史。
 让 AI 助手在程序关闭后仍然能记住之前的对话内容。
 """
-import sqlite3
+
 import os
+import sqlite3
 from datetime import datetime
 from typing import Optional
 
-
 # 数据库文件路径（存在项目根目录）
 DB_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "chat_history.db"
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "chat_history.db"
 )
 
 
@@ -64,6 +63,7 @@ def init_db():
 # 保存操作
 # ================================================================
 
+
 def save_conversation(conv_id: str, messages: list[dict], title: Optional[str] = None):
     """
     保存（或更新）一个对话会话。
@@ -88,13 +88,16 @@ def save_conversation(conv_id: str, messages: list[dict], title: Optional[str] =
             title = "新对话"
 
     # 插入或更新会话
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO conversations (id, title, created_at, updated_at)
         VALUES (?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             title = excluded.title,
             updated_at = excluded.updated_at
-    """, (conv_id, title, now, now))
+    """,
+        (conv_id, title, now, now),
+    )
 
     # 删除该会话的旧消息
     cursor.execute("DELETE FROM messages WHERE conversation_id = ?", (conv_id,))
@@ -113,16 +116,13 @@ def save_conversation(conv_id: str, messages: list[dict], title: Optional[str] =
         if role == "assistant" and not content:
             continue  # assistant 只有 tool_calls 没有文字，恢复时会出错
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO messages (conversation_id, role, content, tool_call_id, timestamp)
             VALUES (?, ?, ?, ?, ?)
-        """, (
-            conv_id,
-            role,
-            content,
-            msg.get("tool_call_id"),
-            now
-        ))
+        """,
+            (conv_id, role, content, msg.get("tool_call_id"), now),
+        )
 
     conn.commit()
     conn.close()
@@ -131,6 +131,7 @@ def save_conversation(conv_id: str, messages: list[dict], title: Optional[str] =
 # ================================================================
 # 加载操作
 # ================================================================
+
 
 def load_conversation(conv_id: str, limit: int = 3000) -> list[dict]:
     """
@@ -150,13 +151,13 @@ def load_conversation(conv_id: str, limit: int = 3000) -> list[dict]:
         cursor.execute(
             "SELECT role, content, tool_call_id FROM messages "
             "WHERE conversation_id = ? ORDER BY id DESC LIMIT ?",
-            (conv_id, limit)
+            (conv_id, limit),
         )
     else:
         cursor.execute(
             "SELECT role, content, tool_call_id FROM messages "
             "WHERE conversation_id = ? ORDER BY id ASC",
-            (conv_id,)
+            (conv_id,),
         )
 
     rows = cursor.fetchall()
@@ -186,9 +187,7 @@ def load_last_conversation() -> tuple[Optional[str], list[dict]]:
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute(
-        "SELECT id FROM conversations ORDER BY updated_at DESC LIMIT 1"
-    )
+    cursor.execute("SELECT id FROM conversations ORDER BY updated_at DESC LIMIT 1")
     row = cursor.fetchone()
     conn.close()
 
@@ -204,6 +203,7 @@ def load_last_conversation() -> tuple[Optional[str], list[dict]]:
 # 列表和删除
 # ================================================================
 
+
 def list_conversations() -> list[dict]:
     """列出所有会话（按更新时间倒序）"""
     conn = get_connection()
@@ -216,12 +216,14 @@ def list_conversations() -> list[dict]:
 
     results = []
     for row in cursor.fetchall():
-        results.append({
-            "id": row["id"],
-            "title": row["title"],
-            "created_at": row["created_at"],
-            "updated_at": row["updated_at"],
-        })
+        results.append(
+            {
+                "id": row["id"],
+                "title": row["title"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+        )
 
     conn.close()
     return results

@@ -15,18 +15,19 @@ TOOL_DEFINITION = {
             "properties": {
                 "goal": {
                     "type": "string",
-                    "description": "需要完成的完整目标描述，越具体越好。如：'调研DeepSeek V4和GPT-4o在编程能力上的差异，给出对比报告'"
+                    "description": "需要完成的完整目标描述，越具体越好。如：'调研DeepSeek V4和GPT-4o在编程能力上的差异，给出对比报告'",
                 }
             },
-            "required": ["goal"]
-        }
-    }
+            "required": ["goal"],
+        },
+    },
 }
 
 
 def execute(goal: str) -> str:
     """启动自主工作流（延迟导入避免循环引用）"""
     from engine.autonomous import run_autonomous_task
+
     try:
         return run_autonomous_task(goal, max_steps=10)
     except Exception as e:
