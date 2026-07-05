@@ -45,10 +45,13 @@ def setup_logging(name: str = "ai-assistant", level: int = logging.INFO) -> logg
             "logs"
         )
         os.makedirs(log_dir, exist_ok=True)
-        file_handler = logging.FileHandler(
+        # RotatingFileHandler：单个日志文件最大 5MB，保留最近 3 个
+        from logging.handlers import RotatingFileHandler
+        file_handler = RotatingFileHandler(
             os.path.join(log_dir, "app.log"),
+            maxBytes=5 * 1024 * 1024,  # 5 MB
+            backupCount=3,              # 保留 app.log.1 / app.log.2 / app.log.3
             encoding="utf-8",
-            mode="a"  # 追加模式
         )
         file_handler.setLevel(logging.DEBUG)  # 文件记录更详细
         file_handler.setFormatter(formatter)
