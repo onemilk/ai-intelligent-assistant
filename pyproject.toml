@@ -39,6 +39,7 @@ ignore = ["E501"]
 quote-style = "double"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 ignore_missing_imports = true
 check_untyped_defs = false
+exclude = ["\\.venv/"]

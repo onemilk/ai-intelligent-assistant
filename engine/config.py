@@ -64,7 +64,7 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return result
 
 
-def get(key: str = None):
+def get(key: str | None = None):
     """读取配置项。不传 key 返回全部配置，传 key 用点号分隔（如 'api.model'）"""
     global _cache
     if _cache is None:
