@@ -1,17 +1,19 @@
 """
 Streamlit Cloud 入口文件 —— 云端部署的主入口。
-Streamlit Cloud 会自动运行这个文件，所以放在项目根目录。
 """
-from panels.chat_panel import main
+import sys
+import os
 
-if __name__ == "__main__":
-    # panels/chat_panel.py 导出了正确的内容，但 __name__ != "__main__"
-    # 所以这里直接触发
-    import streamlit as st
-    from engine import storage, memory
-    from panels.chat_panel import render_sidebar, render_chat
+# 确保能找到项目模块
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-    storage.init_db()
-    memory.init_memory_db()
-    render_sidebar()
-    render_chat()
+from engine import storage, memory
+from panels.chat_panel import render_sidebar, render_chat
+
+# 初始化
+storage.init_db()
+memory.init_memory_db()
+
+# Streamlit 要求脚本顶层直接渲染
+render_sidebar()
+render_chat()
