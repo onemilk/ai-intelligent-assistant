@@ -14,6 +14,7 @@ from tools.doc_tool import (
 )
 from tools.crew_tool import TOOL_DEFINITION as CREW_DEF, execute as exec_crew
 from tools.auto_tool import TOOL_DEFINITION as AUTO_DEF, execute as exec_auto
+from tools.vision_tool import TOOL_DEFINITION as VISION_DEF, execute as exec_vision
 
 # ---- 工具定义列表（发给 AI 的"菜单"）----
 ALL_TOOL_DEFINITIONS = [
@@ -23,6 +24,7 @@ ALL_TOOL_DEFINITIONS = [
     SEARCH_DOCS_TOOL_DEFINITION,
     CREW_DEF,
     AUTO_DEF,
+    VISION_DEF,
 ]
 
 # ---- 工具名称 → 执行函数的映射表 ----
@@ -33,6 +35,7 @@ TOOL_EXECUTORS = {
     "search_documents": execute_search_documents,
     "start_research_crew": exec_crew,
     "start_autonomous_task": exec_auto,
+    "analyze_image": exec_vision,
 }
 
 

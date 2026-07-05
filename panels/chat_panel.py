@@ -121,6 +121,35 @@ def render_sidebar():
             st.success(result)
 
         st.divider()
+        st.subheader("🖼️ 图片分析")
+        uploaded_image = st.file_uploader(
+            "上传图片让 AI 分析",
+            type=["png", "jpg", "jpeg", "gif", "webp", "bmp"],
+            key="image_upload"
+        )
+        if uploaded_image:
+            tmp = os.path.join(os.path.dirname(__file__), "..", "temp_uploads")
+            os.makedirs(tmp, exist_ok=True)
+            img_path = os.path.join(tmp, uploaded_image.name)
+            with open(img_path, "wb") as f:
+                f.write(uploaded_image.getbuffer())
+            st.image(uploaded_image, caption="已上传", width=300)
+            question = st.text_input("想问这张图片什么？", key="img_question",
+                                     placeholder="例如：这张图里有什么？")
+            if question:
+                from engine.vision import analyze_image
+                with st.spinner("AI 正在看图..."):
+                    result = analyze_image(img_path, question)
+                st.success(result)
+                st.session_state.messages.append({
+                    "role": "user",
+                    "content": f"[上传图片：{uploaded_image.name}] {question}"
+                })
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": result}
+                )
+
+        st.divider()
         st.subheader("🤖 快速操作")
         if st.button("🔍 帮我调研 AI Agent 最新动态", use_container_width=True):
             st.session_state.pending_crew = "2026年 AI Agent 最新发展趋势（中文简要总结）"
