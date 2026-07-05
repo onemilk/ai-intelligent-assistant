@@ -4,6 +4,7 @@
 - **项目名称**：AI 智能信息助手（桌宠 AI Agent）
 - **开始日期**：2026-07-02
 - **GitHub**：https://github.com/onemilk/ai-intelligent-assistant
+- **在线体验**：https://xiaoheng-ai-pet.streamlit.app
 - **技术栈**：Python 3.14 + DeepSeek V4 + CrewAI + ChromaDB + PySide6 + Streamlit + SQLite
 - **精灵素材**：Aemeath Mini（爱弥斯 Q 版像素小人）
 
