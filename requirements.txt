@@ -1,0 +1,11 @@
+# 云端部署依赖（Streamlit Cloud 用 pip 安装）
+streamlit>=1.50
+openai>=2.0
+python-dotenv>=1.0
+chromadb>=1.5
+PyPDF2>=3.0
+python-docx>=1.0
+ddgs>=9.0
+crewai>=0.100
+pyttsx3>=2.0
+Pillow>=12.0
