@@ -5,6 +5,9 @@
 [![Streamlit](https://img.shields.io/badge/Deploy-Streamlit%20Cloud-red.svg)](https://xiaoheng-ai-pet.streamlit.app/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/Protocol-MCP-purple.svg)](https://modelcontextprotocol.io/)
+[![CI](https://github.com/onemilk/ai-intelligent-assistant/actions/workflows/test.yml/badge.svg)](https://github.com/onemilk/ai-intelligent-assistant/actions)
+[![ruff](https://img.shields.io/badge/code%20style-ruff-261230.svg)](https://github.com/astral-sh/ruff)
+[![tests](https://img.shields.io/badge/tests-37%20passed-brightgreen.svg)](https://github.com/onemilk/ai-intelligent-assistant/actions)
 
 > 🚀 在线体验：[xiaoheng-ai-pet.streamlit.app](https://xiaoheng-ai-pet.streamlit.app/)
 
