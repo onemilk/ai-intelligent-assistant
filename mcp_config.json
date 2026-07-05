@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "ai-intelligent-assistant": {
+      "command": "uv",
+      "args": [
+        "run",
+        "python",
+        "engine/mcp_server.py"
+      ],
+      "cwd": "D:/python/project/PythonProject/luodi_able"
+    }
+  }
+}

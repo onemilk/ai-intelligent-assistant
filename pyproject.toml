@@ -8,6 +8,7 @@ dependencies = [
     "chromadb>=1.5.9",
     "crewai>=0.118.0",
     "ddgs>=9.14.4",
+    "mcp>=1.28.1",
     "openai>=2.44.0",
     "pillow>=12.3.0",
     "pypdf2>=3.0.1",
