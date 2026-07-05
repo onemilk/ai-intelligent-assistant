@@ -9,6 +9,7 @@
 下次启动时，这些事实会自动注入系统提示词，让 AI 从第一天就了解你。
 """
 from engine.storage import get_connection
+from engine.logging_setup import log
 
 
 def init_memory_db():
@@ -168,7 +169,7 @@ def auto_extract_facts(user_message: str, ai_reply: str):
                 if key == "name" and len(value) > 4:
                     continue
                 remember(key, value, category, confidence=0.6)
-                print(f"  🧠 记住：{key} = {value}")
+                log.info(f"记住：{key} = {value}")
 
     # 统计交互次数
     remember("interaction_count", str(len(recall()) + 1), "habit", 1.0)

@@ -20,3 +20,6 @@ chat_history.db
 
 # 用户配置文件（包含 API Key 等敏感信息）
 settings.json
+
+# 日志文件
+logs/

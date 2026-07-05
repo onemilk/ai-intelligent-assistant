@@ -4,6 +4,7 @@
 """
 import json
 from engine.client import get_client
+from engine.logging_setup import log
 
 
 # 系统提示词——告诉 AI 它现在是一个自主 Agent
@@ -65,7 +66,7 @@ def run_autonomous_task(goal: str, max_steps: int = 10) -> str:
                 result = execute_tool(name, args)
 
                 step_log.append(f"Step {step+1}: {name}({args})")
-                print(f"  🔧 Step {step+1}: {name}({args}) → {len(result)} 字符")
+                log.info(f"Step {step+1}: {name}({args}) → {len(result)} chars")
 
                 messages.append({
                     "role": "tool",
@@ -89,12 +90,11 @@ def run_autonomous_task(goal: str, max_steps: int = 10) -> str:
         reply = choice.message.content or ""
         messages.append({"role": "assistant", "content": reply})
 
-        print(f"  ✅ 自主工作流完成，共 {step+1} 步")
-        print(f"  步骤记录：{step_log}")
+        log.info(f"自主工作流完成，共 {step+1} 步：{step_log}")
         return reply
 
     # 步数用完，强制总结
-    print(f"  ⚠️ 达到最大步数 {max_steps}，强制总结")
+    log.warning(f"达到最大步数 {max_steps}，强制总结")
     messages.append({
         "role": "user",
         "content": "已达到最大步数上限。请基于已搜集的所有信息，立即给出最完整的总结。不要再调用工具。",

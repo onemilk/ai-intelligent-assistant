@@ -16,7 +16,8 @@ from ui.bubble import SpeechBubble
 from ui.input_popup import InputPopup
 
 from engine.client import get_client
-from engine import storage, config, memory  # 对话持久化 + 配置管理 + 长期记忆
+from engine import storage, config, memory
+from engine.logging_setup import log
 from tools import get_definitions, execute_tool
 import json
 import os
@@ -101,12 +102,10 @@ class DeskPet(QMainWindow):
         if self._conv_id is None:
             # 没有历史会话，创建新的
             self._conv_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-            print(f"📝 新会话：{self._conv_id}")
+            log.info(f"新会话：{self._conv_id}")
         else:
             loaded = len(history)
-            max_load = 3000
-            pct = loaded / max_load * 100 if max_load else 0
-            print(f"📝 恢复会话：{self._conv_id}（最近 {loaded} 条，占窗口 ~{pct:.0f}%）")
+            log.info(f"恢复会话：{self._conv_id}（{loaded} 条历史）")
 
         # ---- AI 后端 ----
         self._model = config.get("api.model")  # 从配置读取模型
@@ -428,7 +427,7 @@ class DeskPet(QMainWindow):
                 self.ai_reply_ready.emit(ai_reply)
             except Exception as e:
                 import traceback
-                print(f"[桌宠] 异常：{e}")
+                log.error(f"AI调用异常：{e}")
                 traceback.print_exc()
                 self.ai_reply_ready.emit(f"出错啦：{e}")
 
@@ -680,7 +679,7 @@ class DeskPet(QMainWindow):
         """退出程序——保存对话"""
         try:
             storage.save_conversation(self._conv_id, self._messages)
-            print(f"💾 对话已保存：{self._conv_id}")
+            log.info(f"对话已保存：{self._conv_id}")
         except Exception:
             pass
         self.bubble.hide()
