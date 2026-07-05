@@ -12,7 +12,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from engine.client import get_client
-from engine import storage
+from engine import storage, memory
 from tools import get_definitions, execute_tool
 from agents.crew_manager import run_research_crew
 
@@ -69,11 +69,16 @@ def call_ai(messages, client, tools_defs, placeholder=None):
 
 def get_system_prompt():
     now = datetime.now().strftime("%Y年%m月%d日 %H:%M")
-    return (
+    base = (
         f"当前日期是 {now}。你是一个专业的 AI 智能助手，可以："
         "获取时间 / 搜索互联网 / 搜索本地文档 / 加载文档 / 启动多 Agent 协作生成报告。"
         "最多搜索 1-2 次后给出回答，用中文回复，使用 Markdown 格式。"
     )
+    # 注入用户长期记忆
+    ctx = memory.get_context_string()
+    if ctx:
+        base += "\n" + ctx
+    return base
 
 
 # ================================================================
@@ -180,5 +185,6 @@ def render_chat():
 
 if __name__ == "__main__":
     storage.init_db()
+    memory.init_memory_db()
     render_sidebar()
     render_chat()

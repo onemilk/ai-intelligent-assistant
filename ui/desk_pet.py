@@ -16,7 +16,7 @@ from ui.bubble import SpeechBubble
 from ui.input_popup import InputPopup
 
 from engine.client import get_client
-from engine import storage, config  # 对话持久化 + 配置管理
+from engine import storage, config, memory  # 对话持久化 + 配置管理 + 长期记忆
 from tools import get_definitions, execute_tool
 import json
 import os
@@ -94,8 +94,9 @@ class DeskPet(QMainWindow):
         # ---- 系统托盘 ----
         self._setup_tray()
 
-        # ---- 对话持久化 ----
-        storage.init_db()  # 确保数据库表存在
+        # ---- 对话持久化 + 长期记忆 ----
+        storage.init_db()
+        memory.init_memory_db()
         self._conv_id, history = storage.load_last_conversation()
         if self._conv_id is None:
             # 没有历史会话，创建新的
@@ -112,13 +113,15 @@ class DeskPet(QMainWindow):
         self._client = get_client(model=self._model)
         self._tools = get_definitions()
 
-        # 系统提示词 + 历史消息
-        system_msg = {
-            "role": "system",
-            "content": "你是一个可爱的桌面宠物助手。用中文回答，简洁友好，"
-                       "回复控制在 50 字以内，像朋友聊天一样自然。有时可以说些俏皮话。"
-        }
-        self._messages = [system_msg] + history
+        # 系统提示词 + 用户画像 + 历史消息
+        user_context = memory.get_context_string()
+        system_content = (
+            "你是一个可爱的桌面宠物助手。用中文回答，简洁友好，"
+            "回复控制在 50 字以内，像朋友聊天一样自然。有时可以说些俏皮话。"
+        )
+        if user_context:
+            system_content += "\n" + user_context
+        self._messages = [{"role": "system", "content": system_content}] + history
 
         # ---- TTS（从配置读取） ----
         self._tts_enabled = config.get("ui.tts_enabled")
@@ -484,7 +487,20 @@ class DeskPet(QMainWindow):
         try:
             storage.save_conversation(self._conv_id, self._messages)
         except Exception:
-            pass  # 保存失败不影响正常使用
+            pass
+
+        # 自动提取用户画像
+        try:
+            # 从最近的消息中找用户说了什么
+            user_msg = ""
+            for m in reversed(self._messages):
+                if m["role"] == "user":
+                    user_msg = m["content"]
+                    break
+            if user_msg:
+                memory.auto_extract_facts(user_msg, text)
+        except Exception:
+            pass
 
         # 气泡位置：宠物正上方，确保不超出屏幕
         pet_geo = self.frameGeometry()
@@ -521,6 +537,10 @@ class DeskPet(QMainWindow):
         chat_action = QAction("💬  打开聊天面板", self)
         chat_action.triggered.connect(self._open_chat_panel)
         menu.addAction(chat_action)
+
+        profile_action = QAction("🧠  查看画像", self)
+        profile_action.triggered.connect(self._show_profile)
+        menu.addAction(profile_action)
 
         history_action = QAction("📋  查看历史", self)
         history_action.triggered.connect(self._show_history)
@@ -608,6 +628,23 @@ class DeskPet(QMainWindow):
             self.pet_widget.load_image(file_path)
             self.animator.update_pixmap(self.pet_widget.get_pixmap())
             self._show_reply("新衣服真好看！😊")
+
+    def _show_profile(self):
+        """查看 AI 记住的关于你的画像"""
+        facts = memory.recall()
+        if not facts:
+            self._show_reply("我还不太了解你呢～多和我聊聊吧！😊")
+            return
+        # 气泡展示摘要，终端打印详情
+        summary = f"我记住了 {len(facts)} 条关于你的事：\n"
+        for f in facts[:5]:
+            summary += f"  • {f['key']}：{f['value']}\n"
+        if len(facts) > 5:
+            summary += f"  ... 还有 {len(facts)-5} 条"
+        self._show_reply(summary)
+        print(f"\n🧠 用户画像（{len(facts)} 条）：")
+        for f in facts:
+            print(f"  [{f['category']}] {f['key']} = {f['value']} ({f['confidence']:.0%})")
 
     def _show_history(self):
         """查看对话历史"""
